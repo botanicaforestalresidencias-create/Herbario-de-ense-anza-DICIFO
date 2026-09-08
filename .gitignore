@@ -1,0 +1,7 @@
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+ngrok.exe
+ngrok.zip
+.DS_Store

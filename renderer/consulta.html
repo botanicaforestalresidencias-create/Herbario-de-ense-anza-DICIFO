@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Herbario Digital - Consulta</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="/assets/icon-192.png">
+  <!-- Soporte PWA Estándar y Android -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#153e23">
+
+  <!-- Configuración Específica para iOS (iPhone / iPad) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Herbario DICIFO">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/assets/icon-512.png">
+
+  <!-- Registro del Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('PWA Service Worker registrado'))
+          .catch((err) => console.error('Error en Service Worker:', err));
+      });
+    }
+  </script>
+  <!-- Librería para lector de código de barras -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode3.11.5/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+  <header class="app-header no-print">
+    <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+      <!-- Logo Universidad Chapingo -->
+      <img src="chapingo.png" alt="UACh" style="height: 45px; object-fit: contain;">
+      <!-- Logo División de Ciencias Forestales -->
+      <img src="forestales.png" alt="DICIFO" style="height: 45px; object-fit: contain;">
+      <div>
+        <h1 style="font-size: 1.1rem; margin: 0;">Herbario de Enseñanza – Botánica Forestal</h1>
+        <span class="subtitle" style="font-size: 0.8rem; opacity: 0.9;">División de Ciencias Forestales | Universidad Autónoma Chapingo</span>
+      </div>
+    </div>
+    <div class="brand">
+      <span class="subtitle">Módulo de consulta</span>
+    </div>
+
+    <div class="session">
+      <span id="userLabel"></span>
+      <button id="logoutBtn" class="btn btn-secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div style="width:100%">
+      <div class="toolbar">
+        <div class="field">
+          <label>Buscar</label>
+          <input type="text" id="searchQ" placeholder="Nombre científico, común o familia...">
+        </div>
+        <div class="field">
+          <label>Tipo</label>
+          <select id="filterTipo">
+            <option value="">Todos</option>
+            <option value="Angiosperma">Angiosperma</option>
+            <option value="Gimnosperma">Gimnosperma</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>N.º de registro</label>
+          <input type="text" id="filterRegistro" placeholder="Ej. 001">
+        </div>
+        
+        <button class="btn btn-secondary" id="searchBtn">Buscar</button>
+
+        <!-- BOTÓN DE ESCÁNER DE CÓDIGOS DE BARRAS -->
+        <button type="button" class="btn btn-secondary" id="btnScanCode" style="display: inline-flex; align-items: center; gap: 6px;" title="Escanear código de barras o QR">
+          📷 Escanear
+        </button>
+
+        <!-- BOTÓN DE EXPORTACIÓN A EXCEL -->
+        <button type="button" class="btn btn-secondary" id="exportExcelBtn" style="cursor: pointer;" title="Descargar catálogo completo en formato Excel">
+          Exportar Excel
+        </button>
+
+        <!-- BOTÓN DE IMPRESIÓN / PDF -->
+        <div style="margin-left:auto; display:flex; gap:10px;">
+          <button class="btn btn-secondary" id="printPdfBtn" style="cursor: pointer;" title="Generar reporte o PDF">🖨️ Imprimir PDF</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div id="grid" class="specimen-grid"></div>
+        <div id="emptyState" class="empty-state" style="display:none;">
+          No se encontraron ejemplares registrados.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DEL ESCÁNER -->
+  <div id="scannerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99999; justify-content: center; align-items: center; padding: 15px;">
+    <div style="background: #ffffff; border-radius: 10px; max-width: 440px; width: 100%; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
+      <div style="background: #153e23; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 600; font-size: 15px;">Escanear Ejemplar</span>
+        <button type="button" id="closeScannerBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+      <div style="padding: 16px;">
+        <p style="font-size: 13px; color: #555; margin: 0 0 12px;">Centra el código de barras dentro del recuadro</p>
+        <div id="qr-reader-container" style="width: 100%; border-radius: 6px; overflow: hidden; background: #000;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="detailOverlay" style="display:none;">
+    <div class="detail-sheet" id="detailSheet" style="max-width:820px; position:relative;">
+      <!-- El detalle se carga dinámicamente -->
+    </div>
+  </div>
+
+  <div id = "label-oriny-area" style="display: none;"></div>
+  <script src="js/consulta.js"></script>
+</body>
+</html>

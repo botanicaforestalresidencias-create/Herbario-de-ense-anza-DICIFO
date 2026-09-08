@@ -1,0 +1,628 @@
+:root {
+  /* --- PALETA INSTITUCIONAL OFICIAL UACh & DICIFO --- */
+  --uach-blue: #114b7e;          /* Azul institucional UACh */
+  --uach-blue-dark: #0a3153;     /* Azul profundo para hover */
+  --dicifo-green: #1f5c34;       /* Verde DICIFO (División de Ciencias Forestales) */
+  --dicifo-green-dark: #153e23;  /* Verde oscuro para barra superior y títulos */
+  --dicifo-green-light: #2e834b; /* Verde vivo */
+  --uach-gold: #b8860b;          /* Dorado institucional */
+  
+  --bg-app: #f4f6f8;             /* Fondo limpio y moderno */
+  --card-bg: #ffffff;
+  --ink: #1e293b;                /* Texto principal */
+  --ink-soft: #556987;           /* Texto secundario / subtítulos */
+  --border-light: #d8e2dc;
+  --danger: #b91c1c;
+
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-label: 'Courier New', Courier, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--bg-app);
+  color: var(--ink);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+/* ---------- Encabezado institucional ---------- */
+.app-header {
+  background: var(--dicifo-green-dark) !important;
+  color: #ffffff !important;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 4px solid var(--uach-gold);
+}
+
+.app-header .brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.app-header .brand h1 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+}
+
+.app-header .brand .subtitle {
+  font-family: var(--font-label);
+  font-size: 11px;
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.app-header .session {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-header .session button {
+  background: var(--uach-blue) !important;
+  border: 1px solid var(--uach-gold) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.app-header .session button:hover {
+  background: var(--uach-blue-dark) !important;
+  border-color: #ffffff !important;
+}
+
+/* ---------- Login ---------- */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-top: 5px solid var(--dicifo-green);
+  box-shadow: 0 10px 25px rgba(17, 75, 126, 0.1);
+  padding: 40px 44px;
+  width: 380px;
+  border-radius: 6px;
+}
+
+.login-card h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin: 0 0 4px;
+  color: var(--dicifo-green-dark);
+}
+
+.login-card .eyebrow {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--uach-blue);
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+
+.field { margin-bottom: 16px; }
+
+.field label {
+  display: block;
+  font-family: var(--font-label);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 5px;
+}
+
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink);
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: 2px solid var(--uach-blue);
+  border-color: var(--uach-blue);
+}
+
+/* ---------- Botones del Sistema ---------- */
+.btn {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-primary { 
+  background: var(--dicifo-green) !important; 
+  color: #ffffff !important; 
+}
+.btn-primary:hover { 
+  background: var(--dicifo-green-dark) !important; 
+}
+
+.btn-secondary, #printPdfBtn, #btnScanCode { 
+  background: transparent !important; 
+  border: 1px solid var(--uach-blue) !important; 
+  color: var(--uach-blue) !important; 
+}
+.btn-secondary:hover, #printPdfBtn:hover, #btnScanCode:hover { 
+  background: var(--uach-blue) !important; 
+  color: #ffffff !important; 
+}
+
+.btn-danger { background: var(--danger); color: #ffffff; }
+.btn-link { background: none; border: none; color: var(--uach-blue); text-decoration: underline; cursor: pointer; padding: 0; }
+
+.error-msg {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.role-picker {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.role-picker a {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  border: 1px dashed var(--uach-blue);
+  color: var(--uach-blue);
+  text-decoration: none;
+  font-family: var(--font-label);
+  font-size: 12px;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+.role-picker a:hover { background: #e0f2fe; }
+
+/* ---------- Layout general ---------- */
+.main-layout { display: flex; min-height: calc(100vh - 60px); }
+
+.toolbar {
+  padding: 20px 28px 10px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.toolbar .field { margin-bottom: 0; min-width: 180px; }
+.content { padding: 10px 28px 40px; }
+
+/* ---------- Grid de fichas ---------- */
+.specimen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.specimen-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  position: relative;
+  cursor: pointer;
+  padding: 14px 14px 14px;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.specimen-card:hover {
+  box-shadow: 0 8px 20px rgba(17, 75, 126, 0.12);
+  transform: translateY(-3px);
+  border-color: var(--uach-blue);
+}
+
+/* Fila superior de la tarjeta sin colisiones */
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.specimen-card .reg-stamp {
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  font-weight: bold;
+  color: var(--uach-blue);
+  border: 1px solid var(--uach-blue);
+  background: #f0f7ff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.specimen-card .tipo-tag {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--dicifo-green);
+  letter-spacing: 0.05em;
+  display: inline-block;
+}
+
+.specimen-card h3 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 17px;
+  margin: 6px 0 2px;
+  color: var(--dicifo-green-dark);
+}
+
+.specimen-card .comun { font-size: 13px; color: var(--ink-soft); margin-bottom: 4px; }
+.specimen-card .familia { font-size: 11px; color: var(--ink-soft); font-family: var(--font-label); }
+
+.specimen-card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  margin-top: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+}
+
+/* ---------- Panel de detalle (modal) ---------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(17, 49, 83, 0.6);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.detail-sheet {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 720px;
+  padding: 32px 36px;
+  position: relative;
+  border-top: 5px solid var(--dicifo-green);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.detail-sheet .close-btn {
+  position: absolute; top: 14px; right: 18px;
+  background: none; border: none; font-size: 22px; cursor: pointer; color: var(--ink-soft);
+}
+.detail-sheet .close-btn:hover { color: var(--danger); }
+
+.detail-sheet h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 26px;
+  margin: 0 0 2px;
+  color: var(--dicifo-green-dark);
+}
+
+.detail-sheet .comun { color: var(--ink-soft); margin-bottom: 14px; }
+.detail-sheet hr { border: none; border-top: 1px solid var(--uach-gold); margin: 18px 0; }
+
+.spec-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.spec-table tr { border-bottom: 1px solid #edf2f7; }
+.spec-table td { padding: 8px 4px; vertical-align: top; }
+.spec-table td.label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  width: 40%;
+}
+
+.img-gallery { 
+  display: flex; 
+  gap: 10px; 
+  flex-wrap: wrap; 
+  margin-top: 10px; 
+}
+
+.img-gallery img { 
+  width: 90px; 
+  height: 90px; 
+  object-fit: cover; 
+  border-radius: 6px; 
+  border: 1px solid #dcdcdc; 
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.img-gallery img:hover {
+  transform: scale(1.05);
+}
+
+/* ---------- Formularios Admin ---------- */
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.admin-grid .field.full { grid-column: 1 / -1; }
+
+.section-title {
+  font-family: var(--font-label);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--uach-blue);
+  border-bottom: 2px solid var(--uach-gold);
+  padding-bottom: 6px;
+  margin: 22px 0 12px;
+}
+
+.actions-row { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border: 1px solid var(--dicifo-green);
+  color: var(--dicifo-green);
+  border-radius: 3px;
+  background: #f0fdf4;
+}
+
+.photo-thumb img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+}
+
+/* ---------- Lightbox ---------- */
+.image-modal-overlay {
+  position: fixed; 
+  inset: 0; 
+  background: rgba(10, 30, 50, 0.9);
+  display: flex; 
+  justify-content: center; 
+  align-items: center;
+  z-index: 999999; 
+  cursor: default;
+}
+
+.image-modal-overlay img {
+  max-width: 90vw; 
+  max-height: 85vh; 
+  border-radius: 8px; 
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.6); 
+  object-fit: contain;
+}
+
+/* ========================================================= */
+/* --- ESTILOS DE IMPRESIÓN PARA CÉDULAS TÉCNICAS (PDF) ---- */
+/* ========================================================= */
+@page {
+  size: letter portrait;
+  margin: 8mm;
+}
+
+@media print {
+  header, .app-header, .toolbar, #logoutBtn, #searchBtn, #printPdfBtn, #btnScanCode,
+  .close-btn, .btn, input, select, label, .empty-state,
+  .image-modal-overlay, #scannerModal, #detailOverlay, .no-print,
+  .main-layout, #grid, .specimen-grid {
+    display: none !important;
+  }
+
+  html, body, #print-container {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: Arial, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body:not(.printing-labels)::before {
+    content: "UNIVERSIDAD AUTÓNOMA CHAPINGO — DIVISIÓN DE CIENCIAS FORESTALES | Herbario de Enseñanza";
+    display: block;
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 2px solid #1f5c34;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+    color: #1f5c34;
+  }
+
+  #print-container {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .print-page-item {
+    display: block !important;
+    border: 1px solid #475569 !important;
+    border-top: 3px solid #1f5c34 !important;
+    padding: 8px 12px !important;
+    margin-bottom: 12px !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-page-item h2 {
+    font-size: 15px !important;
+    margin: 2px 0 !important;
+    color: #0f172a !important;
+  }
+
+  .print-page-item .comun {
+    font-size: 11px !important;
+    color: #334155 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .spec-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .spec-table tr { border-bottom: 1px solid #cbd5e1 !important; }
+  .spec-table td { padding: 2px 5px !important; background: transparent !important; }
+  .spec-table td.label {
+    font-weight: bold !important;
+    color: #1e293b !important;
+    width: 22% !important;
+    background: #f1f5f9 !important;
+    font-size: 9.5px !important;
+  }
+
+  .img-gallery { display: flex !important; gap: 6px !important; flex-wrap: wrap !important; }
+  .img-gallery img {
+    display: inline-block !important;
+    width: 60px !important;
+    height: 60px !important;
+    object-fit: cover !important;
+    border: 1px solid #64748b !important;
+    border-radius: 3px !important;
+  } 
+}
+
+/* ============================================================
+   ESTILOS DE IMPRESIÓN COMPACTA PARA ETIQUETAS BOTÁNICAS
+   ============================================================ */
+@media print {
+  body.printing-labels * {
+    visibility: hidden;
+  }
+
+  body.printing-labels::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  body.printing-labels #label-print-area,
+  body.printing-labels #label-print-area * {
+    visibility: visible;
+  }
+
+  body.printing-labels #label-print-area {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3mm 6mm !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Tarjeta física compacta (33mm de altura) */
+.herb-label-card {
+  border: 1px dashed #777;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  color: #111;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  height: 33mm;
+  border-radius: 3px;
+}
+
+.herb-label-header {
+  border-bottom: 1px solid #333;
+  padding-bottom: 2px;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.herb-label-header .title {
+  font-size: 8.5px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.herb-label-header .inst {
+  font-size: 7px;
+  color: #444;
+  margin: 0;
+}
+
+.herb-label-body {
+  margin: 2px 0;
+  line-height: 1.15;
+}
+
+.herb-label-body .specie {
+  font-size: 10.5px;
+  font-weight: bold;
+  font-style: italic;
+  margin: 0 0 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.herb-label-body .meta-row {
+  font-size: 8px;
+  display: flex;
+  justify-content: space-between;
+  color: #333;
+}
+
+.herb-label-barcode {
+  text-align: center;
+  padding-top: 1px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.herb-label-barcode svg {
+  max-width: 95%;
+  height: 28px !important;
+}
