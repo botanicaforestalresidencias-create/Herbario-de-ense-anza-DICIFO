@@ -5,7 +5,7 @@ Sistema web progresivo (PWA) diseñado para la digitalización, catalogación ta
 
 ---
 
-## 🌿 Características Principales
+##  Características Principales
 
 * **Portal de Acceso Diferenciado:**
   * **Alumnos y Docentes (Público):** Ingreso directo con un solo clic a la consulta del acervo sin solicitud de credenciales.
@@ -25,7 +25,7 @@ Sistema web progresivo (PWA) diseñado para la digitalización, catalogación ta
 
 ---
 
-## 🛠️ Stack Tecnológico
+##  Stack Tecnológico
 
 | Capa | Tecnologías |
 | :--- | :--- |
@@ -38,7 +38,7 @@ Sistema web progresivo (PWA) diseñado para la digitalización, catalogación ta
 
 ---
 
-## 📁 Estructura del Directorio
+##  Estructura del Directorio
 
 ```text
 herbario-dicifo/
@@ -75,7 +75,7 @@ herbario-dicifo/
 
 ---
 
-## ⚙️ Instalación y Configuración Local
+##  Instalación y Configuración Local
 
 ### 1. Prerrequisitos
 * Node.js v18.x o superior instalado.
@@ -123,7 +123,7 @@ Acceso disponible en: `http://localhost:3000/login.html`
 
 ---
 
-## 📱 Despliegue en Red Local / Túnel PWA
+##  Despliegue en Red Local / Túnel PWA
 
 Para probar la PWA con cámara y capacidades offline en dispositivos móviles:
 
@@ -136,7 +136,7 @@ Para probar la PWA con cámara y capacidades offline en dispositivos móviles:
 
 ---
 
-## 🔒 Consideraciones de Seguridad
+##  Consideraciones de Seguridad
 
 * Las rutas administrativas (`admin.html` y sus endpoints REST) requieren validación de sesión activa.
 * El archivo `.gitignore` previene la exposición de variables de entorno (`.env`), binarios y la carpeta `node_modules/`.
@@ -144,7 +144,7 @@ Para probar la PWA con cámara y capacidades offline en dispositivos móviles:
 
 ---
 
-## 👥 Créditos
+##  Créditos
 
 * **Institución:** División de Ciencias Forestales (DICIFO) — Universidad Autónoma Chapingo.
 * **Área:** Herbario de Enseñanza de Botánica Forestal.
