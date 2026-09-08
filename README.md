@@ -5,7 +5,7 @@ Sistema web progresivo (PWA) desarrollado para la digitalización, consulta taxo
 
 ---
 
-## 🌿 Características Principales
+##  Características Principales
 
 * **Portal Institucional de Doble Perfil:** 
   * **Acceso Público:** Consulta inmediata para alumnos y docentes sin requerir registro previo.
@@ -16,7 +16,7 @@ Sistema web progresivo (PWA) desarrollado para la digitalización, consulta taxo
 
 ---
 
-## 🛠️ Stack Tecnológico
+##  Stack Tecnológico
 
 * **Backend:** Node.js, Express.js, Multer, Sharp.
 * **Frontend:** HTML5 semántico, CSS3 modular (paleta institucional verde monte UACh), JavaScript Vanilla.
@@ -25,7 +25,7 @@ Sistema web progresivo (PWA) desarrollado para la digitalización, consulta taxo
 
 ---
 
-## 📁 Estructura del Repositorio
+##  Estructura del Repositorio
 
 ```text
 ├── renderer/                 # Frontend y recursos de la PWA
