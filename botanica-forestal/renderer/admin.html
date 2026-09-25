@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Herbario Digital — Administración</title>
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Librería para generar códigos de barras limpios -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <!-- Soporte PWA Estándar y Android -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#153e23">
+
+  <!-- Configuración Específica para iOS (iPhone / iPad) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Herbario DICIFO">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
+
+  <!-- Registro del Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('PWA Service Worker registrado'))
+          .catch((err) => console.error('Error en Service Worker:', err));
+      });
+    }
+  </script>
+
+</head>
+<body>
+  <header class="app-header no-print">
+    <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+      <img src="chapingo.png" alt="UACh" style="height: 45px; object-fit: contain;">
+      <img src="forestales.png" alt="DICIFO" style="height: 45px; object-fit: contain;">
+      <div>
+        <h1 style="font-size: 1.1rem; margin: 0;">Herbario de Enseñanza — Botánica Forestal</h1>
+        <span class="subtitle" style="font-size: 0.8rem; opacity: 0.9;">División de Ciencias Forestales | Universidad Autónoma Chapingo</span>
+      </div>
+    </div>
+
+    <div class="brand">
+      <span class="subtitle">Módulo de administración</span>
+    </div>
+
+    <div class="session">
+      <span id="userLabel" style="margin-right: 10px; font-size: 13px;"></span>
+      <button id="logoutBtn" class="btn btn-secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div style="width:100%">
+      <div class="toolbar">
+        <div class="field">
+          <label>Buscar</label>
+          <input type="text" id="searchQ" placeholder="Nombre, especie, familia...">
+        </div>
+        <div class="field">
+          <label>Tipo</label>
+          <select id="filterTipo">
+            <option value="">Todos</option>
+            <option value="Angiosperma">Angiosperma</option>
+            <option value="Gimnosperma">Gimnosperma</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" id="searchBtn">Buscar</button>
+
+        <!-- SELECCIÓN MASIVA E IMPRESIÓN DE ETIQUETAS -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="selectAllCheckbox" style="cursor: pointer;"> Todos
+          </label>
+          <button type="button" class="btn btn-secondary" id="printLabelsBtn" style="cursor: pointer;" title="Imprimir etiquetas de los ejemplares marcados">
+            🏷️ Imprimir Etiquetas <span id="selectedCount">(0)</span>
+          </button>
+        </div>
+
+        <div style="margin-left:auto; display:flex; gap:10px;">
+          <button type="button" class="btn btn-secondary" id="exportExcelBtn" style="cursor: pointer;" title="Descargar catálogo completo en formato Excel">
+            Exportar Excel
+          </button>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            Importar Excel
+            <input type="file" id="excelInput" accept=".xlsx, .xls" hidden>
+          </label>
+          <button class="btn btn-primary" id="newBtn">+ Nuevo ejemplar</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div id="grid" class="specimen-grid"></div>
+        <div id="emptyState" class="empty-state" style="display:none;">
+          No hay ejemplares registrados todavía. Usa "Nuevo ejemplar" para capturar el primero.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR OCULTO PARA IMPRESIÓN DE ETIQUETAS -->
+  <div id="label-print-area" style="display: none;"></div>
+
+  <!-- MODAL DE FORMULARIO -->
+  <div class="overlay" id="formOverlay" style="display:none;">
+    <div class="detail-sheet" style="max-width:820px;">
+      <button class="close-btn" id="closeForm">&times;</button>
+      <h2 id="formTitle">Nuevo ejemplar</h2>
+      <form id="specimenForm">
+        <input type="hidden" id="specimenId">
+
+        <div class="admin-grid">
+          <div class="field">
+            <label>N.º de registro (clave) *</label>
+            <input type="text" id="f_numero_registro" required>
+          </div>
+          <div class="field">
+            <label>Tipo *</label>
+            <select id="f_tipo" required>
+              <option value="Angiosperma">Angiosperma</option>
+              <option value="Gimnosperma">Gimnosperma</option>
+            </select>
+          </div>
+          <div class="field"><label>Familia</label><input type="text" id="f_familia"></div>
+          <div class="field"><label>Nombre científico</label><input type="text" id="f_nombre_cientifico"></div>
+          <div class="field"><label>Nombre común</label><input type="text" id="f_nombre_comun"></div>
+
+          <div class="field full">
+            <label>Distribución</label>
+            <input type="text" id="f_distribucion">
+            <div class="photo-field" id="photoWrap_distribucion" style="display:none;">
+              <div class="photo-slot" data-campo="distribucion">
+                <div class="photo-thumbs" id="thumbs_distribucion"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de distribución
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="distribucion" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="field full photo-field" id="photoWrap_general" style="display:none;">
+            <div class="photo-slot" data-campo="general">
+              <div class="photo-slot-label">Fotografía general del ejemplar</div>
+              <div class="photo-thumbs" id="thumbs_general"></div>
+              <label class="photo-add-btn">
+                + Agregar foto
+                <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="general" class="photo-input" hidden>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">Características específicas</div>
+        <div id="camposAngiosperma" class="admin-grid">
+          <div class="field full">
+            <label>Hojas</label>
+            <textarea id="a_hojas" rows="2"></textarea>
+            <div class="photo-field" id="photoWrap_hojas" style="display:none;">
+              <div class="photo-slot" data-campo="hojas">
+                <div class="photo-thumbs" id="thumbs_hojas"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de hojas
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="hojas" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Filotaxia</label><input type="text" id="a_filotaxia"></div>
+          <div class="field">
+            <label>Flor</label>
+            <input type="text" id="a_flor">
+            <div class="photo-field" id="photoWrap_flor" style="display:none;">
+              <div class="photo-slot" data-campo="flor">
+                <div class="photo-thumbs" id="thumbs_flor"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de flor
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="flor" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field full">
+            <label>Fruto</label>
+            <input type="text" id="a_fruto">
+            <div class="photo-field" id="photoWrap_fruto" style="display:none;">
+              <div class="photo-slot" data-campo="fruto">
+                <div class="photo-thumbs" id="thumbs_fruto"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de fruto
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="fruto" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Sexualidad</label>
+            <input type="text" id="a_sexualidad">
+            <div class="photo-field" id="photoWrap_sexualidad" style="display:none;">
+              <div class="photo-slot" data-campo="sexualidad">
+                <div class="photo-thumbs" id="thumbs_sexualidad"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de sexualidad
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="sexualidad" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="camposGimnosperma" class="admin-grid" style="display:none;">
+          <div class="field"><label>Subgénero</label><input type="text" id="g_subgenero"></div>
+          <div class="field"><label>Sección</label><input type="text" id="g_seccion"></div>
+          <div class="field">
+            <label>Cono</label>
+            <input type="text" id="g_cono">
+            <div class="photo-field" id="photoWrap_cono" style="display:none;">
+              <div class="photo-slot" data-campo="cono">
+                <div class="photo-thumbs" id="thumbs_cono"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de cono
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="cono" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Longitud de cono</label><input type="text" id="g_longitud_cono"></div>
+          <div class="field"><label>Color de cono</label><input type="text" id="g_color_cono"></div>
+          <div class="field"><label>Umbo</label><input type="text" id="g_umbo"></div>
+          <div class="field"><label>Largo de pedúnculo</label><input type="text" id="g_largo_pedunculo"></div>
+          <div class="field">
+            <label>Tipo de semilla</label>
+            <input type="text" id="g_tipo_semilla">
+            <div class="photo-field" id="photoWrap_semilla" style="display:none;">
+              <div class="photo-slot" data-campo="semilla">
+                <div class="photo-thumbs" id="thumbs_semilla"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de semilla
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="semilla" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field full">
+            <label>Forma de acículas</label>
+            <input type="text" id="g_forma_aciculas">
+            <div class="photo-field" id="photoWrap_aciculas" style="display:none;">
+              <div class="photo-slot" data-campo="aciculas">
+                <div class="photo-thumbs" id="thumbs_aciculas"></div>
+                <label class="photo-add-btn">
+                  + Agregar foto de acículas
+                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="aciculas" class="photo-input" hidden>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Número de acículas</label><input type="text" id="g_numero_aciculas"></div>
+          <div class="field"><label>Longitud de acículas</label><input type="text" id="g_longitud_aciculas"></div>
+          <div class="field"><label>Vaina</label><input type="text" id="g_vaina"></div>
+          <div class="field"><label>Bráctea foliar</label><input type="text" id="g_bractea_foliar"></div>
+          <div class="field"><label>Altitud</label><input type="text" id="g_altitud"></div>
+        </div>
+
+        <div class="section-title">Atributos Extra</div>
+        <div class="field full" style="margin-bottom:15px;">
+          <div id="customFieldsContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="addCustomFieldBtn" style="margin-top:8px; width: auto; align-self: flex-start;">+ Añadir campo personalizado</button>
+        </div>
+
+        <div class="section-title">Notas adicionales</div>
+        <div class="field full"><textarea id="f_otras_caracteristicas" rows="2"></textarea></div>
+
+        <div class="actions-row">
+          <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none; margin-right:auto;">Eliminar ejemplar</button>
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+        <div class="error-msg" id="formError"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>

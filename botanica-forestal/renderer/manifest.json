@@ -1,0 +1,30 @@
+{
+  "name": "Herbario de Enseñanza — DICIFO UACH",
+  "short_name": "Herbario DICIFO",
+  "description": "Herbario Digital de Enseñanza — División de Ciencias Forestales, Universidad Autónoma Chapingo",
+  "start_url": "./login.html",
+  "display": "standalone",
+  "background_color": "#153e23",
+  "theme_color": "#153e23",
+
+  "icons": [
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512*512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512*512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
