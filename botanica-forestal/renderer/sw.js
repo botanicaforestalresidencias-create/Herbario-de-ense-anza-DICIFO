@@ -1,6 +1,7 @@
 const CACHE_NAME = 'herbario-dicifo-v3';
+const OFFLINE_FALLBACK = './consulta.html';
+const OFFLINE_API_MESSAGE = 'Ejemplar no disponible sin conexión. Conéctate a internet para sincronizarlo.';
 
-// Rutas locales estrictas
 const PRECACHE_ASSETS = [
   './',
   './login.html',
@@ -15,112 +16,152 @@ const PRECACHE_ASSETS = [
   './manifest.json'
 ];
 
-// Instalación sin fallos críticos
+const isRequestCacheable = (request) => request.method === 'GET' && request.url.startsWith(self.location.origin);
+
+const cacheResponse = async (request, response) => {
+  if (!response || !(response.ok || response.status === 204)) return;
+
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  } catch (error) {
+    console.warn('No se pudo guardar en caché:', request.url, error);
+  }
+};
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      // Intentamos cachear cada recurso sin detenernos si uno falla
-      for (const asset of PRECACHE_ASSETS) {
-        try {
-          await cache.add(asset);
-        } catch (e) {
-          console.warn('No se pudo precachear:', asset);
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+
+        for (const asset of PRECACHE_ASSETS) {
+          try {
+            await cache.add(asset);
+          } catch (error) {
+            console.warn('No se pudo precachear:', asset, error);
+          }
         }
+      } finally {
+        await self.skipWaiting();
       }
-    }).then(() => self.skipWaiting())
+    })()
   );
 });
 
-// Activación y limpieza inmediata
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })()
   );
 });
 
-// Interceptor de peticiones
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Solo peticiones GET
-  if (request.method !== 'GET') return;
+  if (!isRequestCacheable(request)) return;
 
-  // 1. Peticiones a la API (Network First -> Caché)
-  if (url.pathname.includes('/api/')) {
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copia = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // 2. Imágenes de uploads (Cache First -> Red)
-  if (url.pathname.includes('/uploads/')) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((networkResp) => {
-          if (networkResp && networkResp.status === 200) {
-            const copia = networkResp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
-          }
-          return networkResp;
-        });
-      })
-    );
-    return;
-  }
-
-  // 3. Todo lo demás: HTML, CSS, JS, imágenes locales
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((networkResp) => {
-        if (networkResp && networkResp.status === 200) {
-          const copia = networkResp.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
-        }
-        return networkResp;
-      }).catch(() => caches.match('./consulta.html'));
-    })
-  );
-});
-// 1. Peticiones a la API (Network First -> Cache Fallback)
-  if (url.pathname.includes('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Si el backend responde bien, guardamos una copia exacta
+        .then(async (response) => {
           if (response && response.ok) {
-            const copia = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
+            await cacheResponse(request, response);
           }
           return response;
         })
         .catch(async () => {
-          // Si no hay red, buscamos en el caché
-          const cachedResponse = await caches.match(request);
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // Si de plano no estaba cacheado ese ejemplar, devolver un JSON controlado en vez de romper la app
-          return new Response(
-            JSON.stringify({ error: 'Ejemplar no disponible sin conexión. Conéctate a internet para sincronizarlo.' }),
-            { headers: { 'Content-Type': 'application/json' }, status: 503 }
+          return (
+            (await caches.match(request)) ||
+            (await caches.match(OFFLINE_FALLBACK)) ||
+            (await caches.match('./login.html')) ||
+            new Response('<html><body><h1>Sin conexión</h1></body></html>', {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              status: 503
+            })
           );
         })
     );
     return;
   }
+
+  if (url.pathname.includes('/api/')) {
+    event.respondWith(
+      fetch(request)
+        .then(async (response) => {
+          if (response && response.ok) {
+            await cacheResponse(request, response);
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+
+          return new Response(
+            JSON.stringify({ error: OFFLINE_API_MESSAGE }),
+            {
+              headers: { 'Content-Type': 'application/json; charset=utf-8' },
+              status: 503
+            }
+          );
+        })
+    );
+    return;
+  }
+
+  if (url.pathname.includes('/uploads/')) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse && networkResponse.ok) {
+            await cacheResponse(request, networkResponse);
+          }
+          return networkResponse;
+        } catch (error) {
+          return caches.match(OFFLINE_FALLBACK) || caches.match('./login.html');
+        }
+      })()
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then(async (cached) => {
+      if (cached) return cached;
+
+      try {
+        const networkResponse = await fetch(request);
+        if (networkResponse && networkResponse.ok) {
+          await cacheResponse(request, networkResponse);
+        }
+        return networkResponse;
+      } catch (error) {
+        return (
+          (await caches.match(OFFLINE_FALLBACK)) ||
+          (await caches.match('./login.html')) ||
+          new Response('<html><body><h1>Sin conexión</h1></body></html>', {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            status: 503
+          })
+        );
+      }
+    })
+  );
+});
