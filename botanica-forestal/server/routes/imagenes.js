@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp');
 const pool = require('../db');
 const { requireAuth, requireAdmin } = require('./auth');
 
@@ -15,15 +17,15 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB por foto
+  limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ok = /jpeg|jpg|png|webp/.test(file.mimetype);
     cb(ok ? null : new Error('Solo se permiten imágenes JPG, PNG o WEBP'), ok);
   }
 });
 
-// POST /api/imagenes/:especimenId -> subir imagen (solo admin)
-router.post('/imagenes/:especimenId', upload.single('imagen'), async (req, res) => {
+// CORRECCIÓN AQUÍ: Cambié '/imagenes/:especimenId' por '/:especimenId'
+router.post('/:especimenId', upload.single('imagen'), async (req, res) => {
   try {
     const { especimenId } = req.params;
     const { campo } = req.body;
@@ -32,20 +34,14 @@ router.post('/imagenes/:especimenId', upload.single('imagen'), async (req, res) 
       return res.status(400).json({ error: 'No se envió ninguna imagen.' });
     }
 
-    // Asegurar que la carpeta uploads exista
-    const uploadDir = path.join(__dirname, '../uploads');
+    const uploadDir = path.join(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Nombre único estandarizado en formato .webp
     const filename = `specimen-${especimenId}-${campo || 'general'}-${Date.now()}.webp`;
     const outputPath = path.join(uploadDir, filename);
 
-    // Procesamiento con sharp:
-    // 1. .rotate() -> Corrige la orientación EXIF de fotos tomadas con iPhone/Android
-    // 2. .resize() -> Máximo 1400px de ancho/alto manteniendo proporción
-    // 3. .webp()   -> Compresión WebP al 80%
     await sharp(req.file.buffer)
       .rotate()
       .resize({
@@ -57,9 +53,7 @@ router.post('/imagenes/:especimenId', upload.single('imagen'), async (req, res) 
       .webp({ quality: 80 })
       .toFile(outputPath);
 
-    // Guardar en la base de datos la referencia
-    // (Ajusta esta consulta según tu modelo/tabla actual, ej. db.query o Image.create)
-    const [result] = await db.query(
+    const [result] = await pool.query(
       'INSERT INTO imagenes (especimen_id, campo, ruta_archivo) VALUES (?, ?, ?)',
       [especimenId, campo || 'general', filename]
     );
@@ -77,7 +71,6 @@ router.post('/imagenes/:especimenId', upload.single('imagen'), async (req, res) 
   }
 });
 
-// DELETE /api/imagenes/:id -> eliminar imagen (solo admin)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM imagenes WHERE id = ?', [req.params.id]);

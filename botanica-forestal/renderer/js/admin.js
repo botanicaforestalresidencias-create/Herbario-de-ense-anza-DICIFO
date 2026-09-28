@@ -257,7 +257,7 @@ async function eliminarRapido(id) {
 }
 
 // ------------------------------------------------------------
-// LIGHTBOX ESTANDARIZADO (HORIZONTAL / VERTICAL FIJO + TACHE + ESC)
+// LIGHTBOX ESTANDARIZADO (TACHE ROJA ARRIBA A LA DERECHA)
 // ------------------------------------------------------------
 function abrirImagenGrande(srcRuta) {
   const overlay = document.createElement('div');
@@ -272,79 +272,66 @@ function abrirImagenGrande(srcRuta) {
     z-index: 9999999;
   `;
 
-  const imgTemp = new Image();
-  imgTemp.src = srcRuta;
+  overlay.innerHTML = `
+    <button type="button" id="btnCerrarFoto" style="
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      width: 48px;
+      height: 48px;
+      background: #ffffff;
+      color: #153e23;
+      border: 2px solid #153e23;
+      border-radius: 50%;
+      font-size: 32px;
+      font-weight: bold;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+      z-index: 10;
+      transition: all 0.2s ease;
+    " onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.borderColor='#dc2626'; this.style.transform='scale(1.15)';" 
+      onmouseout="this.style.background='#ffffff'; this.style.color='#153e23'; this.style.borderColor='#153e23'; this.style.transform='scale(1)';"
+      title="Cerrar">&times;</button>
 
-  imgTemp.onload = () => {
-    const esVertical = imgTemp.naturalHeight > imgTemp.naturalWidth;
-    const ancho = esVertical ? '460px' : '720px';
-    const alto = esVertical ? '620px' : '480px';
+    <img src="${srcRuta}" alt="Ejemplar ampliado" style="
+      max-width: 85vw;
+      max-height: 85vh;
+      object-fit: contain;
+      display: block;
+      border-radius: 8px;
+      border: 2px solid #2e834b;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      background: #111;
+    ">
+  `;
 
-    overlay.innerHTML = `
-      <div style="
-        position: relative;
-        width: min(${ancho}, 92vw);
-        height: min(${alto}, 82vh);
-        background: #111;
-        border-radius: 10px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        border: 2px solid #2e834b;
-        overflow: hidden;
-      ">
-        <button type="button" id="btnCerrarFoto" style="
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 36px;
-          height: 36px;
-          background: #ffffff;
-          color: #153e23;
-          border: 2px solid #153e23;
-          border-radius: 50%;
-          font-size: 22px;
-          font-weight: bold;
-          line-height: 1;
-          cursor: pointer;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.6);
-          z-index: 100;
-        ">&times;</button>
+  const cerrar = () => {
+    document.removeEventListener('keydown', teclaEscHandler);
+    overlay.remove();
+  };
 
-        <img src="${srcRuta}" alt="Ejemplar ampliado" style="
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        ">
-      </div>
-    `;
-
-    const cerrar = () => {
-      document.removeEventListener('keydown', teclaEscHandler);
-      overlay.remove();
-    };
-
-    const teclaEscHandler = (e) => {
-      if (e.key === 'Escape' || e.key === 'Esc') {
-        e.stopPropagation();
-        cerrar();
-      }
-    };
-
-    overlay.querySelector('#btnCerrarFoto').addEventListener('click', (e) => {
+  const teclaEscHandler = (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
       e.stopPropagation();
       cerrar();
-    });
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) cerrar();
-    });
-
-    document.addEventListener('keydown', teclaEscHandler);
-    document.body.appendChild(overlay);
+    }
   };
+
+  overlay.querySelector('#btnCerrarFoto').addEventListener('click', (e) => {
+    e.stopPropagation();
+    cerrar();
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) cerrar();
+  });
+
+  document.addEventListener('keydown', teclaEscHandler);
+  document.body.appendChild(overlay);
 }
 
 // ---------- Formulario (crear / editar) ----------

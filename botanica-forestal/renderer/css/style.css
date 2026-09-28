@@ -425,6 +425,62 @@ body {
 }
 
 /* ========================================================= */
+/* --- LAYOUT DEL ENCABEZADO DE LA FICHA TÉCNICA ----------- */
+/* ========================================================= */
+.ficha-header-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  gap: 20px;
+}
+
+.ficha-left {
+  flex: 1;
+}
+
+.badge-folio {
+  display: inline-block;
+  font-family: var(--font-label);
+  font-size: 13px;
+  color: var(--uach-blue);
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.ficha-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 140px;
+}
+
+.main-photo-box {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.main-photo-box img {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+}
+
+.main-photo-box img:hover {
+  transform: scale(1.05);
+}
+
+/* ========================================================= */
 /* --- ESTILOS DE IMPRESIÓN PARA CÉDULAS TÉCNICAS (PDF) ---- */
 /* ========================================================= */
 @page {
@@ -520,6 +576,29 @@ body {
     border: 1px solid #64748b !important;
     border-radius: 3px !important;
   } 
+
+  /* Ajustes específicos para el PDF impreso del nuevo layout */
+  .ficha-header-layout {
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .badge-folio {
+    font-size: 11px !important;
+    border-color: #94a3b8 !important;
+    background: transparent !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .main-photo-box img {
+    width: 90px !important;
+    height: 90px !important;
+    border-color: #94a3b8 !important;
+    box-shadow: none !important;
+  }
 }
 
 /* ============================================================
@@ -625,4 +704,46 @@ body {
 .herb-label-barcode svg {
   max-width: 95%;
   height: 28px !important;
+}
+
+/* ========================================================= */
+/* --- LIGHTBOX MODAL FLOTANTE ----------------------------- */
+/* ========================================================= */
+.lightbox-card-container {
+  position: relative;
+  background: #111;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+  border: 2px solid #2e834b;
+  overflow: visible !important;
+  margin: 25px;
+}
+
+.lightbox-close-btn {
+  position: absolute !important;
+  top: -22px !important;
+  right: -22px !important;
+  width: 42px !important;
+  height: 42px !important;
+  background: #ffffff !important;
+  color: #153e23 !important;
+  border: 2px solid #153e23 !important;
+  border-radius: 50% !important;
+  font-size: 24px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6) !important;
+  z-index: 999999 !important;
+  transition: all 0.2s ease !important;
+}
+
+.lightbox-close-btn:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  transform: scale(1.15) !important;
 }

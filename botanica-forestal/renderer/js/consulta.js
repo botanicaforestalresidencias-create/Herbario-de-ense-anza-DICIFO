@@ -1,3 +1,6 @@
+/* ============================================================
+   HERBARIO DIGITAL - CONSULTA.JS (VERSIÓN DEFINITIVA LIGHTBOX)
+   ============================================================ */
 const API = 'https://curator-activist-unheard.ngrok-free.dev/api';
 //const API = 'http://localhost:3000/api';
 const token = localStorage.getItem('token');
@@ -6,6 +9,7 @@ const sesion = JSON.parse(localStorage.getItem('sesion') || 'null');
 if (!token) window.location.href = 'login.html';
 
 let ultimosEspecimenes = [];
+let indiceActual = 0;
 
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
@@ -24,7 +28,6 @@ function authHeaders() {
 // ------------------------------------------------------------
 let audioCtx = null;
 
-// Despierta el contexto de audio tras la interacción del usuario (requerido por iOS Safari)
 function inicializarAudioContext() {
   try {
     if (!audioCtx) {
@@ -41,15 +44,9 @@ function inicializarAudioContext() {
   }
 }
 
-// Emite el "beep" de confirmación tipo escáner profesional
 function reproducirBeepExito() {
   try {
-    // 1. Vibración háptica (120ms en Android / navegadores compatibles)
-    if (navigator.vibrate) {
-      navigator.vibrate(120);
-    }
-
-    // 2. Síntesis de sonido mediante oscilador
+    if (navigator.vibrate) navigator.vibrate(120);
     inicializarAudioContext();
     if (!audioCtx) return;
 
@@ -57,16 +54,16 @@ function reproducirBeepExito() {
     const nodoGanancia = audioCtx.createGain();
 
     oscilador.type = 'sine';
-    oscilador.frequency.setValueAtTime(1800, audioCtx.currentTime); // Tono agudo y limpio (1.8 kHz)
+    oscilador.frequency.setValueAtTime(1800, audioCtx.currentTime);
 
-    nodoGanancia.gain.setValueAtTime(0.18, audioCtx.currentTime); // Volumen adecuado sin saturar
-    nodoGanancia.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12); // Atenuación rápida
+    nodoGanancia.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    nodoGanancia.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
 
     oscilador.connect(nodoGanancia);
     nodoGanancia.connect(audioCtx.destination);
 
     oscilador.start(audioCtx.currentTime);
-    oscilador.stop(audioCtx.currentTime + 0.12); // Duración: 120 ms
+    oscilador.stop(audioCtx.currentTime + 0.12);
   } catch (e) {
     console.warn('Fallo al reproducir feedback sonoro:', e);
   }
@@ -115,7 +112,6 @@ function renderGrid(items) {
     card.className = 'specimen-card';
     card.innerHTML = `
       <div class="reg-stamp">${item.numero_registro}</div>
-      <div class="tipo-tag">${item.tipo}</div>
       <h3>${item.nombre_cientifico || item.especie || 'Sin identificar'}</h3>
       <div class="comun">${item.nombre_comun || '-'}</div>
       <div class="familia">Fam. ${item.familia || 'N/D'}</div>
@@ -126,7 +122,7 @@ function renderGrid(items) {
 }
 
 // ------------------------------------------------------------
-// LIGHTBOX ESTANDARIZADO (HORIZONTAL / VERTICAL FIJO + TACHE + ESC)
+// LIGHTBOX ESTANDARIZADO (TACHE ROJA ARRIBA A LA DERECHA)
 // ------------------------------------------------------------
 function abrirImagenGrande(srcRuta) {
   const overlay = document.createElement('div');
@@ -141,79 +137,67 @@ function abrirImagenGrande(srcRuta) {
     z-index: 9999999;
   `;
 
-  const imgTemp = new Image();
-  imgTemp.src = srcRuta;
+  // El botón ahora está anclado a la derecha (right: 30px)
+  overlay.innerHTML = `
+    <button type="button" id="btnCerrarFoto" style="
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      width: 48px;
+      height: 48px;
+      background: #ffffff;
+      color: #153e23;
+      border: 2px solid #153e23;
+      border-radius: 50%;
+      font-size: 32px;
+      font-weight: bold;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+      z-index: 10;
+      transition: all 0.2s ease;
+    " onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.borderColor='#dc2626'; this.style.transform='scale(1.15)';" 
+      onmouseout="this.style.background='#ffffff'; this.style.color='#153e23'; this.style.borderColor='#153e23'; this.style.transform='scale(1)';"
+      title="Cerrar">&times;</button>
 
-  imgTemp.onload = () => {
-    const esVertical = imgTemp.naturalHeight > imgTemp.naturalWidth;
-    const ancho = esVertical ? '460px' : '720px';
-    const alto = esVertical ? '620px' : '480px';
+    <img src="${srcRuta}" alt="Ejemplar ampliado" style="
+      max-width: 85vw;
+      max-height: 85vh;
+      object-fit: contain;
+      display: block;
+      border-radius: 8px;
+      border: 2px solid #2e834b;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      background: #111;
+    ">
+  `;
 
-    overlay.innerHTML = `
-      <div style="
-        position: relative;
-        width: min(${ancho}, 92vw);
-        height: min(${alto}, 82vh);
-        background: #111;
-        border-radius: 10px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        border: 2px solid #2e834b;
-        overflow: hidden;
-      ">
-        <button type="button" id="btnCerrarFoto" style="
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 36px;
-          height: 36px;
-          background: #ffffff;
-          color: #153e23;
-          border: 2px solid #153e23;
-          border-radius: 50%;
-          font-size: 22px;
-          font-weight: bold;
-          line-height: 1;
-          cursor: pointer;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.6);
-          z-index: 100;
-        ">&times;</button>
+  const cerrar = () => {
+    document.removeEventListener('keydown', teclaEscHandler);
+    overlay.remove();
+  };
 
-        <img src="${srcRuta}" alt="Ejemplar ampliado" style="
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        ">
-      </div>
-    `;
-
-    const cerrar = () => {
-      document.removeEventListener('keydown', teclaEscHandler);
-      overlay.remove();
-    };
-
-    const teclaEscHandler = (e) => {
-      if (e.key === 'Escape' || e.key === 'Esc') {
-        e.stopPropagation();
-        cerrar();
-      }
-    };
-
-    overlay.querySelector('#btnCerrarFoto').addEventListener('click', (e) => {
+  const teclaEscHandler = (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
       e.stopPropagation();
       cerrar();
-    });
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) cerrar();
-    });
-
-    document.addEventListener('keydown', teclaEscHandler);
-    document.body.appendChild(overlay);
+    }
   };
+
+  overlay.querySelector('#btnCerrarFoto').addEventListener('click', (e) => {
+    e.stopPropagation();
+    cerrar();
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) cerrar();
+  });
+
+  document.addEventListener('keydown', teclaEscHandler);
+  document.body.appendChild(overlay);
 }
 
 // ------------------------------------------------------------
@@ -230,6 +214,14 @@ function construirHtmlFicha(e, esImpresion = false) {
     imgsPorCampo[campo].push(img);
   });
 
+  let fotosGeneralesHtml = '';
+  if (imgsPorCampo.general && imgsPorCampo.general.length > 0) {
+    fotosGeneralesHtml = imgsPorCampo.general.map(img => {
+      const urlCompleta = `${API.replace('/api', '')}/uploads/${img.ruta_archivo}`;
+      return `<img src="${urlCompleta}" alt="Fotografía general" style="cursor: pointer;" title="Clic para ampliar">`;
+    }).join('');
+  }
+
   function filaFotos(campo) {
     const imgs = imgsPorCampo[campo];
     if (!imgs || imgs.length === 0) return '';
@@ -240,67 +232,104 @@ function construirHtmlFicha(e, esImpresion = false) {
     return `<tr><td></td><td><div class="img-gallery">${miniaturas}</div></td></tr>`;
   }
 
-  const filasComunes = `
+  let orden = '-';
+  const camposExtraRestantes = [];
+  (e.campos_personalizados || []).forEach(c => {
+    if (c.nombre_campo && c.nombre_campo.toLowerCase() === 'orden') {
+      orden = c.valor || '-';
+    } else {
+      camposExtraRestantes.push(c);
+    }
+  });
+
+  const filasTaxonomiaYEspecificas = `
     <tr><td class="label">Familia</td><td>${e.familia || '-'}</td></tr>
+    <tr><td class="label">Orden</td><td>${orden}</td></tr>
+    ${isAngio ? `
+      <tr><td class="label">Hojas</td><td>${d.hojas || '-'}</td></tr>${filaFotos('hojas')}
+      <tr><td class="label">Filotaxia</td><td>${d.filotaxia || '-'}</td></tr>
+      <tr><td class="label">Flor</td><td>${d.flor || '-'}</td></tr>${filaFotos('flor')}
+      <tr><td class="label">Fruto</td><td>${d.fruto || '-'}</td></tr>${filaFotos('fruto')}
+      <tr><td class="label">Sexualidad</td><td>${d.sexualidad || '-'}</td></tr>${filaFotos('sexualidad')}
+    ` : `
+      <tr><td class="label">Subgénero</td><td>${d.subgenero || '-'}</td></tr>
+      <tr><td class="label">Sección</td><td>${d.seccion || '-'}</td></tr>
+      <tr><td class="label">Cono</td><td>${d.cono || '-'} (long.${d.longitud_cono || '-'}, color ${d.color_cono || '-'})</td></tr>${filaFotos('cono')}
+      <tr><td class="label">Umbo</td><td>${d.umbo || '-'}</td></tr>
+      <tr><td class="label">Tipo de semilla</td><td>${d.tipo_semilla || '-'}</td></tr>${filaFotos('semilla')}
+      <tr><td class="label">Acículas</td><td>${d.forma_aciculas || '-'} · No. ${d.numero_aciculas || '-'} · long. ${d.longitud_aciculas || '-'}</td></tr>${filaFotos('aciculas')}
+      <tr><td class="label">Bráctea</td><td>${d.bractea_foliar || '-'}</td></tr>
+    `}
+  `;
+
+  const filasDistribucion = `
     <tr><td class="label">Distribución</td><td>${e.distribucion || '-'}</td></tr>
     ${filaFotos('distribucion')}
     ${!isAngio ? `<tr><td class="label">Altitud</td><td>${d.altitud || '-'}</td></tr>` : ''}
-    <tr><td class="label">Fotografía general</td><td>${imgsPorCampo.general ? '' : '-'}</td></tr>
-    ${filaFotos('general')}
   `;
 
-  const filasEspecificas = isAngio ? `
-    <tr><td class="label">Hojas</td><td>${d.hojas || '-'}</td></tr>
-    ${filaFotos('hojas')}
-    <tr><td class="label">Filotaxia</td><td>${d.filotaxia || '-'}</td></tr>
-    <tr><td class="label">Flor</td><td>${d.flor || '-'}</td></tr>
-    ${filaFotos('flor')}
-    <tr><td class="label">Fruto</td><td>${d.fruto || '-'}</td></tr>
-    ${filaFotos('fruto')}
-    <tr><td class="label">Sexualidad</td><td>${d.sexualidad || '-'}</td></tr>
-    ${filaFotos('sexualidad')}
-  ` : `
-    <tr><td class="label">Subgénero</td><td>${d.subgenero || '-'}</td></tr>
-    <tr><td class="label">Sección</td><td>${d.seccion || '-'}</td></tr>
-    <tr><td class="label">Cono</td><td>${d.cono || '-'} (long. ${d.longitud_cono || '-'}, color ${d.color_cono || '-'})</td></tr>
-    ${filaFotos('cono')}
-    <tr><td class="label">Umbo</td><td>${d.umbo || '-'}</td></tr>
-    <tr><td class="label">Tipo de semilla</td><td>${d.tipo_semilla || '-'}</td></tr>
-    ${filaFotos('semilla')}
-    <tr><td class="label">Acículas</td><td>${d.forma_aciculas || '-'} · No. ${d.numero_aciculas || '-'} · long. ${d.longitud_aciculas || '-'}</td></tr>
-    ${filaFotos('aciculas')}
-    <tr><td class="label">Vaina / Bráctea</td><td>${d.vaina || '-'} / ${d.bractea_foliar || '-'}</td></tr>
-  `;
-
-  const filasExtra = (e.campos_personalizados || []).map(c => `
+  const filasExtra = camposExtraRestantes.map(c => `
     <tr><td class="label">${c.nombre_campo}</td><td>${c.valor || '-'}</td></tr>
   `).join('');
 
   return `
     ${!esImpresion ? `
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 6px;">
-        <button type="button" class="btn btn-secondary" onclick="imprimirFichaActual()" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">🖨️ Imprimir Cédula</button>
-        <button class="close-btn" id="closeDetail" style="position: static; font-size: 22px; cursor: pointer;">&times;</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(-1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha anterior (Flecha Izquierda)"> Anterior</button>
+          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha siguiente (Flecha Derecha)"> Siguiente </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="imprimirFichaActual()" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">🖨️ Imprimir Cédula</button>
+          <button class="close-btn" id="closeDetail" style="position: static; font-size: 22px; cursor: pointer;">&times;</button>
+        </div>
       </div>
     ` : ''}
-    <span class="badge">${e.tipo}</span>
-    <h2>${e.nombre_cientifico || e.especie}</h2>
-    <div class="comun">${e.nombre_comun || ''} · N.º de registro: ${e.numero_registro}</div>
-    <table class="spec-table">${filasComunes}</table>
-    <div class="section-title">Características específicas</div>
-    <table class="spec-table">${filasEspecificas}</table>
+    
+    <div class="ficha-header-layout">
+      <div class="ficha-left">
+        <span class="badge-folio">Folio: <strong>${e.numero_registro}</strong></span>
+        <h2 style="font-style: italic; margin: 10px 0 2px;">${e.nombre_cientifico || e.especie || 'Sin identificar'}</h2>
+        <div class="comun">${e.nombre_comun || ''}</div>
+      </div>
+      
+      <div class="ficha-right">
+        ${fotosGeneralesHtml ? `<div class="main-photo-box">${fotosGeneralesHtml}</div>` : ''}
+      </div>
+    </div>
+
+    <table class="spec-table">${filasTaxonomiaYEspecificas}</table>
+    
+    <div class="section-title">Distribución y Hábitat</div>
+    <table class="spec-table">${filasDistribucion}</table>
+    
+    ${e.otras_caracteristicas ? `<div class="section-title">Otras características</div><p style="font-size:12px; line-height:1.4; padding-left:4px;">${e.otras_caracteristicas}</p>` : ''}
+    
     ${filasExtra ? `<div class="section-title">Otros campos</div><table class="spec-table">${filasExtra}</table>` : ''}
-    ${e.otras_caracteristicas ? `<div class="section-title">Notas</div><p style="font-size:12px; line-height:1.4;">${e.otras_caracteristicas}</p>` : ''}
   `;
 }
 
 // ------------------------------------------------------------
-// DETALLE DEL EJEMPLAR (CON CIERRE POR BOTÓN Y TECLA ESC)
+// NAVEGACIÓN ENTRE FICHAS (BOTONES Y FLECHAS DE TECLADO)
+// ------------------------------------------------------------
+function cambiarFicha(direccion) {
+  if (!ultimosEspecimenes || ultimosEspecimenes.length === 0) return;
+  indiceActual += direccion;
+  if (indiceActual < 0) indiceActual = ultimosEspecimenes.length - 1;
+  if (indiceActual >= ultimosEspecimenes.length) indiceActual = 0;
+  verDetalle(ultimosEspecimenes[indiceActual].id);
+}
+
+// ------------------------------------------------------------
+// DETALLE DEL EJEMPLAR
 // ------------------------------------------------------------
 let escCerrarFichaHandler = null;
 
 async function verDetalle(id) {
   try {
+    const idxEncontrado = ultimosEspecimenes.findIndex(item => item.id == id);
+    if (idxEncontrado !== -1) indiceActual = idxEncontrado;
+
     const res = await fetch(`${API}/especimenes/${id}`, { headers: authHeaders() });
     if (!res.ok) return;
     const e = await res.json();
@@ -311,8 +340,12 @@ async function verDetalle(id) {
     detailSheet.innerHTML = construirHtmlFicha(e, false);
 
     setTimeout(() => {
-      detailSheet.querySelectorAll('.img-gallery img').forEach(imgEl => {
-        imgEl.addEventListener('click', () => abrirImagenGrande(imgEl.src));
+      detailSheet.querySelectorAll('img').forEach(imgEl => {
+        imgEl.style.cursor = 'pointer';
+        imgEl.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          abrirImagenGrande(imgEl.src);
+        });
       });
     }, 50);
 
@@ -326,13 +359,18 @@ async function verDetalle(id) {
       }
     };
 
-    document.getElementById('closeDetail').addEventListener('click', cerrarDetalleModal);
+    const btnCerrar = document.getElementById('closeDetail');
+    if (btnCerrar) btnCerrar.addEventListener('click', cerrarDetalleModal);
 
     if (escCerrarFichaHandler) document.removeEventListener('keydown', escCerrarFichaHandler);
     escCerrarFichaHandler = (ev) => {
       if (document.querySelector('.image-modal-overlay')) return;
       if (ev.key === 'Escape' || ev.key === 'Esc') {
         cerrarDetalleModal();
+      } else if (ev.key === 'ArrowLeft') {
+        cambiarFicha(-1);
+      } else if (ev.key === 'ArrowRight') {
+        cambiarFicha(1);
       }
     };
     document.addEventListener('keydown', escCerrarFichaHandler);
@@ -347,7 +385,7 @@ document.getElementById('filterRegistro').addEventListener('keydown', (e) => { i
 document.getElementById('filterTipo').addEventListener('change', buscar);
 
 // ------------------------------------------------------------
-// LÓGICA DE IMPRESIÓN Y PDF
+// IMPRESIÓN Y PDF
 // ------------------------------------------------------------
 async function imprimirFichaActual() {
   let printContainer = document.getElementById('print-container');
@@ -360,6 +398,8 @@ async function imprimirFichaActual() {
   const contenidoModal = document.getElementById('detailSheet').cloneNode(true);
   const botonCerrar = contenidoModal.querySelector('#closeDetail');
   if (botonCerrar) botonCerrar.parentElement.remove();
+  const navContainer = contenidoModal.querySelector('.ficha-header-layout')?.previousElementSibling;
+  if (navContainer) navContainer.remove();
 
   printContainer.innerHTML = `<div class="print-page-item">${contenidoModal.innerHTML}</div>`;
 
@@ -431,7 +471,7 @@ if (printPdfBtn) {
 }
 
 // ------------------------------------------------------------
-// EXPORTACIÓN COMPLETA A EXCEL EN DOS HOJAS
+// EXPORTACIÓN A EXCEL
 // ------------------------------------------------------------
 const exportExcelBtn = document.getElementById('exportExcelBtn');
 if (exportExcelBtn) {
@@ -440,13 +480,8 @@ if (exportExcelBtn) {
     exportExcelBtn.disabled = true;
 
     try {
-      const res = await fetch(`${API}/especimenes/exportar/excel`, {
-        headers: authHeaders()
-      });
-
-      if (!res.ok) {
-        throw new Error(`Error en el servidor: ${res.status}`);
-      }
+      const res = await fetch(`${API}/especimenes/exportar/excel`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`Error en el servidor: ${res.status}`);
 
       const blob = await res.blob();
       const urlDescarga = window.URL.createObjectURL(blob);
@@ -468,7 +503,7 @@ if (exportExcelBtn) {
 }
 
 // ------------------------------------------------------------
-// ESCÁNER ESTABLE CON GUÍA TRASLÚCIDA + SONIDO DE CONFIRMACIÓN
+// ESCÁNER DE CÓDIGOS
 // ------------------------------------------------------------
 let html5QrScanner = null;
 let escaneandoActivo = false;
@@ -480,20 +515,15 @@ const closeScannerBtn = document.getElementById('closeScannerBtn');
 if (btnScanCode) {
   btnScanCode.addEventListener('click', async () => {
     inicializarAudioContext();
-
     scannerModal.style.display = 'flex';
     escaneandoActivo = true;
 
     const qrContainer = document.getElementById('qr-reader-container');
-    if (qrContainer) {
-      qrContainer.style.minHeight = '250px';
-    }
+    if (qrContainer) qrContainer.style.minHeight = '250px';
 
     if (!html5QrScanner) {
       html5QrScanner = new Html5Qrcode('qr-reader-container', {
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        },
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
         verbose: false
       });
     }
@@ -518,7 +548,6 @@ if (btnScanCode) {
         config,
         (decodedText) => {
           if (!escaneandoActivo) return;
-
           reproducirBeepExito();
           procesarLecturaExitosa(decodedText);
         },
@@ -532,12 +561,9 @@ if (btnScanCode) {
   });
 }
 
-// Procesamiento de clave y apertura de cédula
 async function procesarLecturaExitosa(rawText) {
   escaneandoActivo = false;
-
   const codigoLimpio = rawText.replace(/[^a-zA-Z0-9_-]/g, '').trim();
-
   await detenerScannerCamara();
 
   const inputQ = document.getElementById('searchQ');
@@ -592,5 +618,5 @@ async function detenerScannerCamara() {
   }
   scannerModal.style.display = 'none';
 }
-// Carga inicial
+
 buscar();
