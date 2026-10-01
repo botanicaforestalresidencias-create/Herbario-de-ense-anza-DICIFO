@@ -243,18 +243,22 @@
               </div>
             </div>
           </div>
+
+          <!-- CAMPO NUEVO: Fotografía del árbol (Reemplaza a acículas) -->
+          <div class="field full photo-field" id="photoWrap_arbol" style="display:none;">
+            <div class="photo-slot" data-campo="arbol">
+              <div class="photo-slot-label">Fotografía del árbol</div>
+              <div class="photo-thumbs" id="thumbs_arbol"></div>
+              <label class="photo-add-btn">
+                + Agregar foto del árbol
+                <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="arbol" class="photo-input" hidden>
+              </label>
+            </div>
+          </div>
+
           <div class="field full">
             <label>Forma de acículas</label>
             <input type="text" id="g_forma_aciculas">
-            <div class="photo-field" id="photoWrap_aciculas" style="display:none;">
-              <div class="photo-slot" data-campo="aciculas">
-                <div class="photo-thumbs" id="thumbs_aciculas"></div>
-                <label class="photo-add-btn">
-                  + Agregar foto de acículas
-                  <input type="file" accept="image/png, image/jpeg, image/webp" data-campo="aciculas" class="photo-input" hidden>
-                </label>
-              </div>
-            </div>
           </div>
           <div class="field"><label>Número de acículas</label><input type="text" id="g_numero_aciculas"></div>
           <div class="field"><label>Longitud de acículas</label><input type="text" id="g_longitud_aciculas"></div>

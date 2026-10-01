@@ -352,11 +352,12 @@ function toggleTipoFields(fromUserAction = false) {
 const fTipoSelect = document.getElementById('f_tipo');
 if (fTipoSelect) fTipoSelect.addEventListener('change', () => toggleTipoFields(true));
 
+// MODIFICADO: Se cambia 'aciculas' por 'arbol' en Gimnosperma
 const CAMPOS_FOTO_POR_TIPO = {
   Angiosperma: ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'distribucion'],
-  Gimnosperma: ['general', 'cono', 'semilla', 'aciculas', 'distribucion']
+  Gimnosperma: ['general', 'cono', 'semilla', 'arbol', 'distribucion']
 };
-const TODOS_LOS_CAMPOS_FOTO = ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'cono', 'semilla', 'aciculas', 'distribucion'];
+const TODOS_LOS_CAMPOS_FOTO = ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'cono', 'semilla', 'arbol', 'distribucion'];
 
 function limpiarFormulario() {
   if (form) form.reset();

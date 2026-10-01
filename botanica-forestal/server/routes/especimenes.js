@@ -143,7 +143,7 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 
     const angioData = angios.map(r => {
       const filaBase = {
-        'CLAVE': r.numero_registro || '',
+        'REGISTRO': r.numero_registro || '',
         'FAMILIA': r.familia || '',
         'NOMBRE CIENTÍFICO': r.nombre_cientifico || '',
         'NOMBRE COMÚN': r.nombre_comun || '',
@@ -160,7 +160,7 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 
     const gimnoData = gimnos.map(r => {
       const filaBase = {
-        'CLAVE': r.numero_registro || '',
+        'REGISTRO': r.numero_registro || '',
         'FAMILIA': r.familia || '',
         'NOMBRE CIENTÍFICO': r.nombre_cientifico || '',
         'NOMBRE COMÚN': r.nombre_comun || '',
@@ -204,7 +204,7 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/especimenes -> list / search (Flexible y compatible con ambas clases)
+// GET /api/especimenes -> list / search
 // ------------------------------------------------------------
 router.get('/', requireAuth, async (req, res) => {
   const { q, tipo, familia, numero_registro } = req.query;
@@ -434,7 +434,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// POST /api/especimenes/importar -> Import Excel
+// POST /api/especimenes/importar -> Import Excel (Blindado y Unificador)
 // ------------------------------------------------------------
 router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('documento'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
@@ -459,7 +459,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
         const hojaUpper = nombreHoja.trim().toUpperCase();
         
         let tipo = null;
-        if (hojaUpper === 'GIMNOSBD') {
+        if (hojaUpper === 'GIMNOSBD' || hojaUpper === 'PINOS') {
           tipo = 'Gimnosperma';
         } else if (hojaUpper.startsWith('ANGIO')) {
           tipo = 'Angiosperma';
@@ -472,8 +472,13 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
         for (const filaCruda of datosExcel) {
           const fila = normalizarFila(filaCruda);
           
-          const numero_registro = String(fila['CLAVE'] || '').trim();
-          if (!numero_registro) continue; 
+          // EXTRAEMOS AMBAS IDENTIFICACIONES (NUEVA Y VIEJA)
+          const registroExcel = String(fila['REGISTRO'] || '').trim();
+          const claveExcel = String(fila['CLAVE'] || '').trim();
+
+          // El folio oficial definitivo debe ser el número (REGISTRO). Si está vacío, usa la CLAVE.
+          const folioOficial = registroExcel || claveExcel;
+          if (!folioOficial) continue; 
 
           const familia = fila['FAMILIA'] || '';
           const especie = fila['NOMBRE CIENTÍFICO'] || '';
@@ -484,13 +489,22 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
             ? (fila['DISTRIBUCIÓN'] || '') 
             : (fila['DISTRIBUCIÓN NATURAL EN MÉXICO'] || '');
 
-          const [[existe]] = await conn.query('SELECT id FROM especimenes WHERE TRIM(numero_registro) = ?', [numero_registro]);
+          // BÚSQUEDA UNIFICADORA: Busca si existe ya sea bajo el REGISTRO numérico nuevo o la CLAVE antigua
+          const [rowsExiste] = await conn.query(
+            `SELECT id FROM especimenes 
+             WHERE (TRIM(numero_registro) = ? AND ? != '') 
+                OR (TRIM(numero_registro) = ? AND ? != '')`,
+            [registroExcel, registroExcel, claveExcel, claveExcel]
+          );
+          
+          const existe = rowsExiste.length > 0 ? rowsExiste[0] : null;
           
           if (!existe) {
+            // Si no existe bajo ninguna de las dos formas, se crea
             const [result] = await conn.query(
               `INSERT INTO especimenes (numero_registro, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [numero_registro, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
+              [folioOficial, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
             );
             const especimenId = result.insertId;
 
@@ -515,13 +529,14 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
             }
             creados++;
           } else {
+            // Si existe, LO ACTUALIZA Y LE CAMBIA EL FOLIO al definitivo oficial (folioOficial)
             const especimenId = existe.id;
 
             await conn.query(
               `UPDATE especimenes 
-               SET tipo = ?, familia = ?, nombre_cientifico = ?, nombre_comun = ?, distribucion = ?, otras_caracteristicas = ?
+               SET numero_registro = ?, tipo = ?, familia = ?, nombre_cientifico = ?, nombre_comun = ?, distribucion = ?, otras_caracteristicas = ?
                WHERE id = ?`,
-              [tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, especimenId]
+              [folioOficial, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, especimenId]
             );
 
             if (tipo === 'Angiosperma') {
@@ -550,7 +565,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
           }
         }
       }
-      res.json({ mensaje: `Procesamiento completado: ${creados} ejemplares nuevos agregados, ${actualizados} actualizados.` });
+      res.json({ mensaje: `Procesamiento completado: ${creados} ejemplares nuevos agregados, ${actualizados} actualizados/unificados.` });
     } finally {
       conn.release();
     }

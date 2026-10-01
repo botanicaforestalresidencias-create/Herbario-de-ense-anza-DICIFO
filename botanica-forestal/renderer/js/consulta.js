@@ -137,7 +137,6 @@ function abrirImagenGrande(srcRuta) {
     z-index: 9999999;
   `;
 
-  // El botón ahora está anclado a la derecha (right: 30px)
   overlay.innerHTML = `
     <button type="button" id="btnCerrarFoto" style="
       position: absolute;
@@ -246,7 +245,7 @@ function construirHtmlFicha(e, esImpresion = false) {
     <tr><td class="label">Familia</td><td>${e.familia || '-'}</td></tr>
     <tr><td class="label">Orden</td><td>${orden}</td></tr>
     ${isAngio ? `
-      <tr><td class="label">Hojas</td><td>${d.hojas || '-'}</td></tr>${filaFotos('hojas')}
+      <tr><td class="label">Hojas</td><td>${d.hojas ||  '-'}</td></tr>${filaFotos('hojas')}
       <tr><td class="label">Filotaxia</td><td>${d.filotaxia || '-'}</td></tr>
       <tr><td class="label">Flor</td><td>${d.flor || '-'}</td></tr>${filaFotos('flor')}
       <tr><td class="label">Fruto</td><td>${d.fruto || '-'}</td></tr>${filaFotos('fruto')}
@@ -254,10 +253,11 @@ function construirHtmlFicha(e, esImpresion = false) {
     ` : `
       <tr><td class="label">Subgénero</td><td>${d.subgenero || '-'}</td></tr>
       <tr><td class="label">Sección</td><td>${d.seccion || '-'}</td></tr>
-      <tr><td class="label">Cono</td><td>${d.cono || '-'} (long.${d.longitud_cono || '-'}, color ${d.color_cono || '-'})</td></tr>${filaFotos('cono')}
+      <tr><td class="label">Cono</td><td>${d.cono || '-'}</td></tr>${filaFotos('cono')}
       <tr><td class="label">Umbo</td><td>${d.umbo || '-'}</td></tr>
       <tr><td class="label">Tipo de semilla</td><td>${d.tipo_semilla || '-'}</td></tr>${filaFotos('semilla')}
-      <tr><td class="label">Acículas</td><td>${d.forma_aciculas || '-'} · No. ${d.numero_aciculas || '-'} · long. ${d.longitud_aciculas || '-'}</td></tr>${filaFotos('aciculas')}
+      <tr><td class="label">Fotografía del árbol</td><td></td></tr>${filaFotos('arbol')}
+      <tr><td class="label">Acículas</td><td>${d.forma_aciculas || '-'}</td></tr>
       <tr><td class="label">Bráctea</td><td>${d.bractea_foliar || '-'}</td></tr>
     `}
   `;
@@ -310,7 +310,7 @@ function construirHtmlFicha(e, esImpresion = false) {
 }
 
 // ------------------------------------------------------------
-// NAVEGACIÓN ENTRE FICHAS (BOTONES Y FLECHAS DE TECLADO)
+// NAVEGACIÓN ENTRE FICHAS
 // ------------------------------------------------------------
 function cambiarFicha(direccion) {
   if (!ultimosEspecimenes || ultimosEspecimenes.length === 0) return;
