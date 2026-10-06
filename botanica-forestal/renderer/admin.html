@@ -31,7 +31,6 @@
       });
     }
   </script>
-
 </head>
 <body>
   <header class="app-header no-print">
@@ -89,6 +88,9 @@
             <input type="file" id="excelInput" accept=".xlsx, .xls" hidden>
           </label>
           <button class="btn btn-primary" id="newBtn">+ Nuevo ejemplar</button>
+          <button type="button" class="btn btn-secondary" id="darkModeToggle" style="cursor: pointer;">
+            🌙 Modo Oscuro
+          </button>
         </div>
       </div>
 
@@ -96,6 +98,13 @@
         <div id="grid" class="specimen-grid"></div>
         <div id="emptyState" class="empty-state" style="display:none;">
           No hay ejemplares registrados todavía. Usa "Nuevo ejemplar" para capturar el primero.
+        </div>
+
+        <!-- CONTROLES DE PAGINACIÓN -->
+        <div id="paginationContainer" style="display: flex; justify-content: center; align-items: center; gap: 14px; margin: 30px 0; padding-bottom: 20px;">
+          <button type="button" id="prevPageBtn" class="btn btn-secondary" style="cursor: pointer; padding: 6px 16px;">⬅️ Anterior</button>
+          <span id="pageInfo" style="font-family: var(--font-label); font-size: 13px; color: var(--ink-soft); font-weight: bold;">Página 1 de 1</span>
+          <button type="button" id="nextPageBtn" class="btn btn-secondary" style="cursor: pointer; padding: 6px 16px;">Siguiente ➡️</button>
         </div>
       </div>
     </div>
@@ -155,6 +164,8 @@
         </div>
 
         <div class="section-title">Características específicas</div>
+        
+        <!-- CAMPOS ANGIOSPERMA -->
         <div id="camposAngiosperma" class="admin-grid">
           <div class="field full">
             <label>Hojas</label>
@@ -210,9 +221,12 @@
             </div>
           </div>
         </div>
+
+        <!-- CAMPOS GIMNOSPERMA -->
         <div id="camposGimnosperma" class="admin-grid" style="display:none;">
           <div class="field"><label>Subgénero</label><input type="text" id="g_subgenero"></div>
           <div class="field"><label>Sección</label><input type="text" id="g_seccion"></div>
+          
           <div class="field">
             <label>Cono</label>
             <input type="text" id="g_cono">
@@ -226,10 +240,9 @@
               </div>
             </div>
           </div>
-          <div class="field"><label>Longitud de cono</label><input type="text" id="g_longitud_cono"></div>
-          <div class="field"><label>Color de cono</label><input type="text" id="g_color_cono"></div>
+
           <div class="field"><label>Umbo</label><input type="text" id="g_umbo"></div>
-          <div class="field"><label>Largo de pedúnculo</label><input type="text" id="g_largo_pedunculo"></div>
+
           <div class="field">
             <label>Tipo de semilla</label>
             <input type="text" id="g_tipo_semilla">
@@ -244,7 +257,9 @@
             </div>
           </div>
 
-          <!-- CAMPO NUEVO: Fotografía del árbol (Reemplaza a acículas) -->
+          <div class="field"><label>Acículas</label><input type="text" id="g_forma_aciculas"></div>
+
+          <!-- Fotografía del árbol -->
           <div class="field full photo-field" id="photoWrap_arbol" style="display:none;">
             <div class="photo-slot" data-campo="arbol">
               <div class="photo-slot-label">Fotografía del árbol</div>
@@ -256,13 +271,6 @@
             </div>
           </div>
 
-          <div class="field full">
-            <label>Forma de acículas</label>
-            <input type="text" id="g_forma_aciculas">
-          </div>
-          <div class="field"><label>Número de acículas</label><input type="text" id="g_numero_aciculas"></div>
-          <div class="field"><label>Longitud de acículas</label><input type="text" id="g_longitud_aciculas"></div>
-          <div class="field"><label>Vaina</label><input type="text" id="g_vaina"></div>
           <div class="field"><label>Bráctea foliar</label><input type="text" id="g_bractea_foliar"></div>
           <div class="field"><label>Altitud</label><input type="text" id="g_altitud"></div>
         </div>

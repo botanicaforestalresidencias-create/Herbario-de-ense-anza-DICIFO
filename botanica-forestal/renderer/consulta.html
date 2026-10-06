@@ -86,6 +86,9 @@
         <!-- BOTÓN DE IMPRESIÓN / PDF -->
         <div style="margin-left:auto; display:flex; gap:10px;">
           <button class="btn btn-secondary" id="printPdfBtn" style="cursor: pointer;" title="Generar reporte o PDF">🖨️ Imprimir PDF</button>
+          <button type="button" class="btn btn-secondary" id="darkModeToggle" title="Cambiar modo oscuro/claro" style="cursor: pointer;">
+            🌙 Modo Oscuro
+          </button>
         </div>
       </div>
 
@@ -93,6 +96,13 @@
         <div id="grid" class="specimen-grid"></div>
         <div id="emptyState" class="empty-state" style="display:none;">
           No se encontraron ejemplares registrados.
+        </div>
+
+        <!-- CONTROLES DE PAGINACIÓN -->
+        <div id="paginationContainer" style="display: flex; justify-content: center; align-items: center; gap: 14px; margin: 30px 0; padding-bottom: 20px;">
+          <button type="button" id="prevPageBtn" class="btn btn-secondary" style="cursor: pointer; padding: 6px 16px;">⬅️ Anterior</button>
+          <span id="pageInfo" style="font-family: var(--font-label); font-size: 13px; color: var(--ink-soft); font-weight: bold;">Página 1 de 1</span>
+          <button type="button" id="nextPageBtn" class="btn btn-secondary" style="cursor: pointer; padding: 6px 16px;">Siguiente ➡️</button>
         </div>
       </div>
     </div>

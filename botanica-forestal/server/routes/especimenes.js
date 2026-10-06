@@ -1,3 +1,6 @@
+/* ============================================================
+   HERBARIO DIGITAL - ESPECIMENES.JS (CON PAGINACIÓN)
+   ============================================================ */
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
@@ -49,7 +52,7 @@ async function getEspecimenCompleto(id) {
 }
 
 // ------------------------------------------------------------
-// GET /api/especimenes/campos-unicos -> Nombres de atributos universales por tipo
+// GET /api/especimenes/campos-unicos
 // ------------------------------------------------------------
 router.get('/campos-unicos', requireAuth, async (req, res) => {
   try {
@@ -73,7 +76,7 @@ router.get('/campos-unicos', requireAuth, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/especimenes/exportar/excel -> Exportar catálogo en dos hojas con campos extra
+// GET /api/especimenes/exportar/excel
 // ------------------------------------------------------------
 router.get('/exportar/excel', requireAuth, async (req, res) => {
   try {
@@ -125,15 +128,9 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
         g.subgenero,
         g.seccion,
         g.cono,
-        g.longitud_cono,
-        g.color_cono,
         g.umbo,
-        g.largo_pedunculo,
         g.tipo_semilla,
         g.forma_aciculas,
-        g.numero_aciculas,
-        g.longitud_aciculas,
-        g.vaina,
         g.bractea_foliar
       FROM especimenes e
       LEFT JOIN gimnospermas_detalle g ON e.id = g.especimen_id
@@ -169,15 +166,9 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
         'SUBGÉNERO': r.subgenero || '',
         'SECCIÓN': r.seccion || '',
         'CONO': r.cono || '',
-        'LONGITUD DEL CONO': r.longitud_cono || '',
-        'COLOR DE CONO': r.color_cono || '',
         'UMBO': r.umbo || '',
-        'LARGO DE PEDÚNCULO': r.largo_pedunculo || '',
         'TIPO DE SEMILLA': r.tipo_semilla || '',
-        'FORMA DE LAS ACÍCULAS': r.forma_aciculas || '',
-        'NÚMERO DE ACÍCULAS': r.numero_aciculas || '',
-        'LONGITUD DE ACÍCULAS': r.longitud_aciculas || '',
-        'VAINA': r.vaina || '',
+        'ACÍCULAS': r.forma_aciculas || '',
         'BRACTEA FOLIAR': r.bractea_foliar || '',
         'OTRAS CARACTERÍSTICAS': r.otras_caracteristicas || ''
       };
@@ -204,44 +195,63 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/especimenes -> list / search
+// GET /api/especimenes (Con Soporte de Paginación)
 // ------------------------------------------------------------
 router.get('/', requireAuth, async (req, res) => {
-  const { q, tipo, familia, numero_registro } = req.query;
+  const { q, tipo, familia, numero_registro, page = 1, limit = 20 } = req.query;
   let sql = 'SELECT id, numero_registro, tipo, familia, nombre_cientifico, nombre_comun FROM especimenes WHERE 1=1';
+  let countSql = 'SELECT COUNT(*) as total FROM especimenes WHERE 1=1';
   const params = [];
+  const countParams = [];
 
-  if (numero_registro) {
-    const regLimpio = String(numero_registro).replace(/[* \r\n\t]/g, '').trim();
-    sql += ' AND (TRIM(numero_registro) = ? OR numero_registro LIKE ?)';
-    params.push(regLimpio, `%${regLimpio}%`);
-  }
-  if (tipo) {
-    sql += ' AND tipo LIKE ?';
-    params.push(`%${tipo.trim()}%`);
-  }
-  if (familia) {
-    sql += ' AND familia LIKE ?';
-    params.push(`%${familia.trim()}%`);
-  }
-  if (q) {
-    const qLimpio = q.trim();
-    sql += ' AND (nombre_cientifico LIKE ? OR nombre_comun LIKE ? OR familia LIKE ? OR numero_registro LIKE ?)';
-    params.push(`%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`);
-  }
+  const aplicarFiltros = (baseQuery, targetParams) => {
+    let qStr = baseQuery;
+    if (numero_registro) {
+      const regLimpio = String(numero_registro).replace(/[* \r\n\t]/g, '').trim();
+      qStr += ' AND (TRIM(numero_registro) = ? OR numero_registro LIKE ?)';
+      targetParams.push(regLimpio, `%${regLimpio}%`);
+    }
+    if (tipo) {
+      qStr += ' AND tipo LIKE ?';
+      targetParams.push(`%${tipo.trim()}%`);
+    }
+    if (familia) {
+      qStr += ' AND familia LIKE ?';
+      targetParams.push(`%${familia.trim()}%`);
+    }
+    if (q) {
+      const qLimpio = q.trim();
+      qStr += ' AND (nombre_cientifico LIKE ? OR nombre_comun LIKE ? OR familia LIKE ? OR numero_registro LIKE ?)';
+      targetParams.push(`%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`);
+    }
+    return qStr;
+  };
 
-  sql += ' ORDER BY CAST(numero_registro AS UNSIGNED) ASC, familia ASC';
+  const finalCountSql = aplicarFiltros(countSql, countParams);
+  sql = aplicarFiltros(sql, params);
+
+  sql += ' ORDER BY CAST(numero_registro AS UNSIGNED) ASC, familia ASC LIMIT ? OFFSET ?';
+  const limitNum = parseInt(limit, 10) || 20;
+  const offsetNum = (parseInt(page, 10) - 1) * limitNum;
+  params.push(limitNum, offsetNum);
 
   try {
+    const [[{ total }]] = await pool.query(finalCountSql, countParams);
     const [rows] = await pool.query(sql, params);
-    res.json(rows);
+    
+    res.json({
+      datos: rows,
+      total: total,
+      paginaActual: parseInt(page, 10),
+      porPagina: limitNum
+    });
   } catch (err) {
     console.error('Error al consultar especímenes:', err);
     res.status(500).json({ error: 'Error al consultar especímenes' });
   }
 });
 
-// GET /api/especimenes/:id -> complete detail
+// GET /api/especimenes/:id
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const especimen = await getEspecimenCompleto(req.params.id);
@@ -254,7 +264,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// POST /api/especimenes -> create
+// POST /api/especimenes
 // ------------------------------------------------------------
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const {
@@ -290,18 +300,14 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     } else if (tipoNorm.includes('gimno') && detalle) {
       await conn.query(
         `INSERT INTO gimnospermas_detalle
-         (especimen_id, subgenero, seccion, cono, longitud_cono, color_cono, umbo, largo_pedunculo,
-          tipo_semilla, forma_aciculas, numero_aciculas, longitud_aciculas, vaina, bractea_foliar, altitud)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (especimen_id, subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [especimenId, detalle.subgenero || null, detalle.seccion || null, detalle.cono || null,
-         detalle.longitud_cono || null, detalle.color_cono || null, detalle.umbo || null,
-         detalle.largo_pedunculo || null, detalle.tipo_semilla || null, detalle.forma_aciculas || null,
-         detalle.numero_aciculas || null, detalle.longitud_aciculas || null, detalle.vaina || null,
+         detalle.umbo || null, detalle.tipo_semilla || null, detalle.forma_aciculas || null,
          detalle.bractea_foliar || null, detalle.altitud || null]
       );
     }
 
-    // --- SAVE CUSTOM FIELDS ---
     if (Array.isArray(campos_personalizados)) {
       for (const item of campos_personalizados) {
         if (item.nombre_campo && item.valor) {
@@ -339,7 +345,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// PUT /api/especimenes/:id -> update
+// PUT /api/especimenes/:id
 // ------------------------------------------------------------
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
@@ -373,19 +379,15 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         );
       } else {
         await conn.query(
-          `UPDATE gimnospermas_detalle SET subgenero=?, seccion=?, cono=?, longitud_cono=?, color_cono=?,
-           umbo=?, largo_pedunculo=?, tipo_semilla=?, forma_aciculas=?, numero_aciculas=?,
-           longitud_aciculas=?, vaina=?, bractea_foliar=?, altitud=? WHERE especimen_id=?`,
-          [detalle.subgenero || null, detalle.seccion || null, detalle.cono || null, detalle.longitud_cono || null,
-           detalle.color_cono || null, detalle.umbo || null, detalle.largo_pedunculo || null,
-           detalle.tipo_semilla || null, detalle.forma_aciculas || null, detalle.numero_aciculas || null,
-           detalle.longitud_aciculas || null, detalle.vaina || null, detalle.bractea_foliar || null,
-           detalle.altitud || null, id]
+          `UPDATE gimnospermas_detalle SET subgenero=?, seccion=?, cono=?,
+           umbo=?, tipo_semilla=?, forma_aciculas=?, bractea_foliar=?, altitud=? WHERE especimen_id=?`,
+          [detalle.subgenero || null, detalle.seccion || null, detalle.cono || null,
+           detalle.umbo || null, detalle.tipo_semilla || null, detalle.forma_aciculas || null,
+           detalle.bractea_foliar || null, detalle.altitud || null, id]
         );
       }
     }
 
-    // --- UPDATE CUSTOM FIELDS ---
     await conn.query('DELETE FROM valores_personalizados WHERE especimen_id = ?', [id]);
 
     if (Array.isArray(campos_personalizados)) {
@@ -421,7 +423,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/especimenes/:id -> delete
+// DELETE /api/especimenes/:id
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM especimenes WHERE id = ?', [req.params.id]);
@@ -434,7 +436,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// POST /api/especimenes/importar -> Import Excel (Blindado y Unificador)
+// POST /api/especimenes/importar -> Import Excel con soporte automático para CLAVE
 // ------------------------------------------------------------
 router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('documento'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
@@ -448,7 +450,12 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
     const normalizarFila = (fila) => {
       const filaLimpia = {};
       for (let clave in fila) {
-        const claveLimpia = clave.replace(/[\r\n\-]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        const claveLimpia = clave
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+          .replace(/[\r\n\-]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toUpperCase();
         filaLimpia[claveLimpia] = fila[clave];
       }
       return filaLimpia;
@@ -472,24 +479,18 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
         for (const filaCruda of datosExcel) {
           const fila = normalizarFila(filaCruda);
           
-          // EXTRAEMOS AMBAS IDENTIFICACIONES (NUEVA Y VIEJA)
           const registroExcel = String(fila['REGISTRO'] || '').trim();
           const claveExcel = String(fila['CLAVE'] || '').trim();
 
-          // El folio oficial definitivo debe ser el número (REGISTRO). Si está vacío, usa la CLAVE.
           const folioOficial = registroExcel || claveExcel;
           if (!folioOficial) continue; 
 
           const familia = fila['FAMILIA'] || '';
-          const especie = fila['NOMBRE CIENTÍFICO'] || '';
-          const nombre_comun = fila['NOMBRE COMÚN'] || '';
-          const otras_caracteristicas = fila['OTRAS CARACTERÍSTICAS'] || '';
-          
-          const distribucion = tipo === 'Angiosperma' 
-            ? (fila['DISTRIBUCIÓN'] || '') 
-            : (fila['DISTRIBUCIÓN NATURAL EN MÉXICO'] || '');
+          const especie = fila['NOMBRE CIENTIFICO'] || '';
+          const nombre_comun = fila['NOMBRE COMUN'] || '';
+          const otras_caracteristicas = fila['OTRAS CARACTERISTICAS'] || '';
+          const distribucion = fila['DISTRIBUCION'] || fila['DISTRIBUCION NATURAL EN MEXICO'] || '';
 
-          // BÚSQUEDA UNIFICADORA: Busca si existe ya sea bajo el REGISTRO numérico nuevo o la CLAVE antigua
           const [rowsExiste] = await conn.query(
             `SELECT id FROM especimenes 
              WHERE (TRIM(numero_registro) = ? AND ? != '') 
@@ -497,40 +498,57 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
             [registroExcel, registroExcel, claveExcel, claveExcel]
           );
           
-          const existe = rowsExiste.length > 0 ? rowsExiste[0] : null;
-          
-          if (!existe) {
-            // Si no existe bajo ninguna de las dos formas, se crea
+          const subgenero = fila['SUBGENERO'] || null;
+          const seccion = fila['SECCION'] || null;
+          const cono = fila['CONO'] || null;
+          const umbo = fila['UMBO'] || null;
+          const tipo_semilla = fila['SEMILLA'] || fila['TIPO DE SEMILLA'] || null;
+          const forma_aciculas = fila['ACICULAS'] || fila['HOJAS'] || fila['FORMA DE LAS ACICULAS'] || null;
+          const bractea_foliar = fila['BRACTEA FOLIAR'] || null;
+          const altitud = fila['ALTITUD'] || null;
+
+          const hojas_angio = fila['HOJAS'] || null;
+          const filotaxia = fila['FILOTAXIA'] || null;
+          const flor = fila['FLORES'] || fila['FLOR'] || null;
+          const fruto = fila['FRUTO'] || null;
+          const sexualidad = fila['SEXUALIDAD'] || null;
+
+          let especimenId;
+
+          if (rowsExiste.length === 0) {
             const [result] = await conn.query(
               `INSERT INTO especimenes (numero_registro, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
               [folioOficial, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
             );
-            const especimenId = result.insertId;
+            especimenId = result.insertId;
 
             if (tipo === 'Angiosperma') {
               await conn.query(
                 `INSERT INTO angiospermas_detalle (especimen_id, hojas, filotaxia, flor, fruto, sexualidad) VALUES (?, ?, ?, ?, ?, ?)`,
-                [especimenId, fila['HOJAS'] || null, fila['FILOTAXIA'] || null, fila['FLORES'] || null, fila['FRUTO'] || null, fila['SEXUALIDAD'] || null]
+                [especimenId, hojas_angio, filotaxia, flor, fruto, sexualidad]
               );
             } else {
               await conn.query(
                 `INSERT INTO gimnospermas_detalle 
-                 (especimen_id, subgenero, seccion, cono, longitud_cono, color_cono, umbo, largo_pedunculo, tipo_semilla, forma_aciculas, numero_aciculas, longitud_aciculas, vaina, bractea_foliar, altitud) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  especimenId, fila['SUBGÉNERO'] || null, fila['SECCIÓN'] || null, fila['CONO'] || null, 
-                  fila['LONGITUD DEL CONO'] || null, fila['COLOR DE CONO'] || null, fila['UMBO'] || null, 
-                  fila['LARGO DE PEDÚNCULO'] || null, fila['TIPO DE SEMILLA'] || null, fila['FORMA DE LAS ACÍCULAS'] || null, 
-                  fila['NÚMERO DE ACÍCULAS'] || null, fila['LONGITUD DE ACÍCULAS'] || null, fila['VAINA'] || null, 
-                  fila['BRACTEA FOLIAR'] || null, fila['ALTITUD'] || null
-                ]
+                 (especimen_id, subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [especimenId, subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud]
               );
             }
             creados++;
           } else {
-            // Si existe, LO ACTUALIZA Y LE CAMBIA EL FOLIO al definitivo oficial (folioOficial)
-            const especimenId = existe.id;
+            especimenId = rowsExiste[0].id;
+
+            if (rowsExiste.length > 1) {
+              for (let i = 1; i < rowsExiste.length; i++) {
+                const dupId = rowsExiste[i].id;
+                await conn.query('DELETE FROM angiospermas_detalle WHERE especimen_id = ?', [dupId]);
+                await conn.query('DELETE FROM gimnospermas_detalle WHERE especimen_id = ?', [dupId]);
+                await conn.query('DELETE FROM valores_personalizados WHERE especimen_id = ?', [dupId]);
+                await conn.query('DELETE FROM especimenes WHERE id = ?', [dupId]);
+              }
+            }
 
             await conn.query(
               `UPDATE especimenes 
@@ -544,28 +562,40 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
                 `UPDATE angiospermas_detalle 
                  SET hojas = ?, filotaxia = ?, flor = ?, fruto = ?, sexualidad = ?
                  WHERE especimen_id = ?`,
-                [fila['HOJAS'] || null, fila['FILOTAXIA'] || null, fila['FLORES'] || null, fila['FRUTO'] || null, fila['SEXUALIDAD'] || null, especimenId]
+                [hojas_angio, filotaxia, flor, fruto, sexualidad, especimenId]
               );
             } else {
               await conn.query(
                 `UPDATE gimnospermas_detalle 
-                 SET subgenero = ?, seccion = ?, cono = ?, longitud_cono = ?, color_cono = ?, umbo = ?, largo_pedunculo = ?, tipo_semilla = ?, forma_aciculas = ?, numero_aciculas = ?, longitud_aciculas = ?, vaina = ?, bractea_foliar = ?, altitud = ?
+                 SET subgenero = ?, seccion = ?, cono = ?, umbo = ?, tipo_semilla = ?, forma_aciculas = ?, bractea_foliar = ?, altitud = ?
                  WHERE especimen_id = ?`,
-                [
-                  fila['SUBGÉNERO'] || null, fila['SECCIÓN'] || null, fila['CONO'] || null, 
-                  fila['LONGITUD DEL CONO'] || null, fila['COLOR DE CONO'] || null, fila['UMBO'] || null, 
-                  fila['LARGO DE PEDÚNCULO'] || null, fila['TIPO DE SEMILLA'] || null, fila['FORMA DE LAS ACÍCULAS'] || null, 
-                  fila['NÚMERO DE ACÍCULAS'] || null, fila['LONGITUD DE ACÍCULAS'] || null, fila['VAINA'] || null, 
-                  fila['BRACTEA FOLIAR'] || null, fila['ALTITUD'] || null,
-                  especimenId
-                ]
+                [subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud, especimenId]
               );
             }
             actualizados++;
           }
+
+          if (claveExcel) {
+            let [campoRow] = await conn.query('SELECT id FROM campos_personalizados WHERE nombre_campo = ?', ['CLAVE']);
+            let campoId;
+            
+            if (campoRow.length === 0) {
+              const [nuevoCampo] = await conn.query('INSERT INTO campos_personalizados (nombre_campo) VALUES (?)', ['CLAVE']);
+              campoId = nuevoCampo.insertId;
+            } else {
+              campoId = campoRow[0].id;
+            }
+
+            await conn.query('DELETE FROM valores_personalizados WHERE especimen_id = ? AND campo_id = ?', [especimenId, campoId]);
+
+            await conn.query(
+              'INSERT INTO valores_personalizados (especimen_id, campo_id, valor) VALUES (?, ?, ?)',
+              [especimenId, campoId, claveExcel]
+            );
+          }
         }
       }
-      res.json({ mensaje: `Procesamiento completado: ${creados} ejemplares nuevos agregados, ${actualizados} actualizados/unificados.` });
+      res.json({ mensaje: `Procesamiento completado: ${creados} nuevos, ${actualizados} actualizados con clave asignada correctamente.` });
     } finally {
       conn.release();
     }

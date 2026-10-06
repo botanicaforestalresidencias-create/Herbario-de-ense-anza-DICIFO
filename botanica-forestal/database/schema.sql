@@ -48,7 +48,6 @@ CREATE TABLE angiospermas_detalle (
   sexualidad    VARCHAR(50),    -- ej. "Hermafrodita", "Dioica", "Monoica"
   flor          TEXT,
   fruto         TEXT,
-  sexualidad    VARCHAR(150),
   ubicacion_herbario VARCHAR(100), -- clave física de la cartulina (ej. "T/II/16B")
   FOREIGN KEY (especimen_id) REFERENCES especimenes(id) ON DELETE CASCADE
 );

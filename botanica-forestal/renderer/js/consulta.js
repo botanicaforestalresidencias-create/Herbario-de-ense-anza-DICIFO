@@ -1,5 +1,5 @@
 /* ============================================================
-   HERBARIO DIGITAL - CONSULTA.JS (VERSIÓN DEFINITIVA LIGHTBOX)
+   HERBARIO DIGITAL - CONSULTA.JS (CON PAGINACIÓN)
    ============================================================ */
 const API = 'https://curator-activist-unheard.ngrok-free.dev/api';
 //const API = 'http://localhost:3000/api';
@@ -10,6 +10,8 @@ if (!token) window.location.href = 'login.html';
 
 let ultimosEspecimenes = [];
 let indiceActual = 0;
+let paginaActualConsulta = 1;
+const limitePorPaginaConsulta = 20;
 
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
@@ -69,7 +71,8 @@ function reproducirBeepExito() {
   }
 }
 
-async function buscar() {
+async function buscar(nuevaPagina = 1) {
+  paginaActualConsulta = nuevaPagina;
   const q = document.getElementById('searchQ').value.trim();
   const tipo = document.getElementById('filterTipo').value;
   const numero_registro = document.getElementById('filterRegistro').value.trim();
@@ -78,6 +81,8 @@ async function buscar() {
   if (q) params.set('q', q);
   if (tipo) params.set('tipo', tipo);
   if (numero_registro) params.set('numero_registro', numero_registro);
+  params.set('page', paginaActualConsulta);
+  params.set('limit', limitePorPaginaConsulta);
 
   try {
     const res = await fetch(`${API}/especimenes?${params.toString()}`, { headers: authHeaders() });
@@ -87,13 +92,37 @@ async function buscar() {
       return; 
     }
 
-    const data = await res.json();
-    ultimosEspecimenes = data;
-    renderGrid(data);
+    const respuesta = await res.json();
+    const items = Array.isArray(respuesta) ? respuesta : (respuesta.datos || []);
+    const totalRegistros = respuesta.total || items.length;
+
+    ultimosEspecimenes = items;
+    renderGrid(items);
+    actualizarControlesPaginacionConsulta(totalRegistros);
   } catch (err) {
     console.error('Error al realizar búsqueda:', err);
   }
 }
+
+function actualizarControlesPaginacionConsulta(total) {
+  const totalPaginas = Math.ceil(total / limitePorPaginaConsulta) || 1;
+  const pageInfo = document.getElementById('pageInfo');
+  if (pageInfo) pageInfo.textContent = `Página ${paginaActualConsulta} de ${totalPaginas}`;
+
+  const prevBtn = document.getElementById('prevPageBtn');
+  const nextBtn = document.getElementById('nextPageBtn');
+  
+  if (prevBtn) prevBtn.disabled = paginaActualConsulta <= 1;
+  if (nextBtn) nextBtn.disabled = paginaActualConsulta >= totalPaginas;
+}
+
+document.getElementById('prevPageBtn')?.addEventListener('click', () => {
+  if (paginaActualConsulta > 1) buscar(paginaActualConsulta - 1);
+});
+
+document.getElementById('nextPageBtn')?.addEventListener('click', () => {
+  buscar(paginaActualConsulta + 1);
+});
 
 function renderGrid(items) {
   const grid = document.getElementById('grid');
@@ -122,7 +151,7 @@ function renderGrid(items) {
 }
 
 // ------------------------------------------------------------
-// LIGHTBOX ESTANDARIZADO (TACHE ROJA ARRIBA A LA DERECHA)
+// LIGHTBOX ESTANDARIZADO
 // ------------------------------------------------------------
 function abrirImagenGrande(srcRuta) {
   const overlay = document.createElement('div');
@@ -213,11 +242,15 @@ function construirHtmlFicha(e, esImpresion = false) {
     imgsPorCampo[campo].push(img);
   });
 
-  let fotosGeneralesHtml = '';
-  if (imgsPorCampo.general && imgsPorCampo.general.length > 0) {
-    fotosGeneralesHtml = imgsPorCampo.general.map(img => {
+  let fotosCabeceraHtml = '';
+  const fotosParaCabecera = [];
+  if (imgsPorCampo.general) fotosParaCabecera.push(...imgsPorCampo.general);
+  if (imgsPorCampo.arbol) fotosParaCabecera.push(...imgsPorCampo.arbol);
+
+  if (fotosParaCabecera.length > 0) {
+    fotosCabeceraHtml = fotosParaCabecera.map(img => {
       const urlCompleta = `${API.replace('/api', '')}/uploads/${img.ruta_archivo}`;
-      return `<img src="${urlCompleta}" alt="Fotografía general" style="cursor: pointer;" title="Clic para ampliar">`;
+      return `<img src="${urlCompleta}" alt="Fotografía del ejemplar" style="cursor: pointer;" title="Clic para ampliar">`;
     }).join('');
   }
 
@@ -253,18 +286,23 @@ function construirHtmlFicha(e, esImpresion = false) {
     ` : `
       <tr><td class="label">Subgénero</td><td>${d.subgenero || '-'}</td></tr>
       <tr><td class="label">Sección</td><td>${d.seccion || '-'}</td></tr>
-      <tr><td class="label">Cono</td><td>${d.cono || '-'}</td></tr>${filaFotos('cono')}
+      <tr><td class="label">Cono</td><td>${d.cono|| '-'}</td></tr>${filaFotos('cono')}
       <tr><td class="label">Umbo</td><td>${d.umbo || '-'}</td></tr>
-      <tr><td class="label">Tipo de semilla</td><td>${d.tipo_semilla || '-'}</td></tr>${filaFotos('semilla')}
-      <tr><td class="label">Fotografía del árbol</td><td></td></tr>${filaFotos('arbol')}
+      <tr><td class="label">Tipo de semilla</td><td>${d.tipo_semilla ||'-'}</td></tr>${filaFotos('semilla')}
       <tr><td class="label">Acículas</td><td>${d.forma_aciculas || '-'}</td></tr>
       <tr><td class="label">Bráctea</td><td>${d.bractea_foliar || '-'}</td></tr>
     `}
   `;
 
+  const galeriaDistribucion = imgsPorCampo.distribucion && imgsPorCampo.distribucion.length > 0 
+    ? `<div class="img-gallery" style="margin-top: 8px;">${imgsPorCampo.distribucion.map(img => {
+        const urlCompleta = `${API.replace('/api', '')}/uploads/${img.ruta_archivo}`;
+        return `<img src="${urlCompleta}" alt="Mapa de distribución" style="cursor: pointer; max-width: 180px; height: auto;" title="Clic para ampliar">`;
+      }).join('')}</div>`
+    : '';
+
   const filasDistribucion = `
-    <tr><td class="label">Distribución</td><td>${e.distribucion || '-'}</td></tr>
-    ${filaFotos('distribucion')}
+    <tr><td class="label">Distribución</td><td>${e.distribucion || '-'}${galeriaDistribucion}</td></tr>
     ${!isAngio ? `<tr><td class="label">Altitud</td><td>${d.altitud || '-'}</td></tr>` : ''}
   `;
 
@@ -276,8 +314,8 @@ function construirHtmlFicha(e, esImpresion = false) {
     ${!esImpresion ? `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <div style="display: flex; gap: 6px;">
-          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(-1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha anterior (Flecha Izquierda)"> Anterior</button>
-          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha siguiente (Flecha Derecha)"> Siguiente </button>
+          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(-1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha anterior"> Anterior</button>
+          <button type="button" class="btn btn-secondary" onclick="cambiarFicha(1)" style="padding: 4px 10px; font-size: 12px; cursor: pointer;" title="Ficha siguiente"> Siguiente </button>
         </div>
         <div style="display: flex; gap: 8px;">
           <button type="button" class="btn btn-secondary" onclick="imprimirFichaActual()" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">🖨️ Imprimir Cédula</button>
@@ -294,7 +332,7 @@ function construirHtmlFicha(e, esImpresion = false) {
       </div>
       
       <div class="ficha-right">
-        ${fotosGeneralesHtml ? `<div class="main-photo-box">${fotosGeneralesHtml}</div>` : ''}
+        ${fotosCabeceraHtml ? `<div class="main-photo-box">${fotosCabeceraHtml}</div>` : ''}
       </div>
     </div>
 
@@ -309,9 +347,6 @@ function construirHtmlFicha(e, esImpresion = false) {
   `;
 }
 
-// ------------------------------------------------------------
-// NAVEGACIÓN ENTRE FICHAS
-// ------------------------------------------------------------
 function cambiarFicha(direccion) {
   if (!ultimosEspecimenes || ultimosEspecimenes.length === 0) return;
   indiceActual += direccion;
@@ -320,9 +355,6 @@ function cambiarFicha(direccion) {
   verDetalle(ultimosEspecimenes[indiceActual].id);
 }
 
-// ------------------------------------------------------------
-// DETALLE DEL EJEMPLAR
-// ------------------------------------------------------------
 let escCerrarFichaHandler = null;
 
 async function verDetalle(id) {
@@ -379,14 +411,11 @@ async function verDetalle(id) {
   }
 }
 
-document.getElementById('searchBtn').addEventListener('click', buscar);
-document.getElementById('searchQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
-document.getElementById('filterRegistro').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
-document.getElementById('filterTipo').addEventListener('change', buscar);
+document.getElementById('searchBtn').addEventListener('click', () => buscar(1));
+document.getElementById('searchQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(1); });
+document.getElementById('filterRegistro').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(1); });
+document.getElementById('filterTipo').addEventListener('change', () => buscar(1));
 
-// ------------------------------------------------------------
-// IMPRESIÓN Y PDF
-// ------------------------------------------------------------
 async function imprimirFichaActual() {
   let printContainer = document.getElementById('print-container');
   if (!printContainer) {
@@ -470,9 +499,6 @@ if (printPdfBtn) {
   });
 }
 
-// ------------------------------------------------------------
-// EXPORTACIÓN A EXCEL
-// ------------------------------------------------------------
 const exportExcelBtn = document.getElementById('exportExcelBtn');
 if (exportExcelBtn) {
   exportExcelBtn.addEventListener('click', async () => {
@@ -502,9 +528,6 @@ if (exportExcelBtn) {
   });
 }
 
-// ------------------------------------------------------------
-// ESCÁNER DE CÓDIGOS
-// ------------------------------------------------------------
 let html5QrScanner = null;
 let escaneandoActivo = false;
 
@@ -581,18 +604,22 @@ async function procesarLecturaExitosa(rawText) {
       });
 
       let data = res.ok ? await res.json() : [];
+      let items = Array.isArray(data) ? data : (data.datos || []);
 
-      if (!data || data.length === 0) {
+      if (!items || items.length === 0) {
         const resFallback = await fetch(`${API}/especimenes?q=${encodeURIComponent(codigoLimpio)}`, {
           headers: authHeaders()
         });
-        if (resFallback.ok) data = await resFallback.json();
+        if (resFallback.ok) {
+          const fallbackData = await resFallback.json();
+          items = Array.isArray(fallbackData) ? fallbackData : (fallbackData.datos || []);
+        }
       }
 
-      if (data && data.length > 0) {
-        ultimosEspecimenes = data;
-        renderGrid(data);
-        verDetalle(data[0].id);
+      if (items && items.length > 0) {
+        ultimosEspecimenes = items;
+        renderGrid(items);
+        verDetalle(items[0].id);
       } else {
         alert(`Código leído: "${codigoLimpio}", pero no coincide con ningún registro en la base de datos.`);
       }
@@ -619,4 +646,25 @@ async function detenerScannerCamara() {
   scannerModal.style.display = 'none';
 }
 
-buscar();
+buscar(1);
+
+const darkModeToggle = document.getElementById('darkModeToggle');
+
+if (localStorage.getItem('darkMode') === 'enabled') {
+  document.body.classList.add('dark-mode');
+  if (darkModeToggle) darkModeToggle.textContent = '☀️ Modo Claro';
+}
+
+if (darkModeToggle) {
+  darkModeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    
+    if (document.body.classList.contains('dark-mode')) {
+      localStorage.setItem('darkMode', 'enabled');
+      darkModeToggle.textContent = '☀️ Modo Claro';
+    } else {
+      localStorage.setItem('darkMode', 'disabled');
+      darkModeToggle.textContent = '🌙 Modo Oscuro';
+    }
+  });
+}

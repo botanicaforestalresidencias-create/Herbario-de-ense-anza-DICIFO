@@ -1,3 +1,6 @@
+/* ============================================================
+   HERBARIO DIGITAL - ADMIN.JS (CON PAGINACIÓN)
+   ============================================================ */
 const API = 'https://curator-activist-unheard.ngrok-free.dev/api';
 //const API = 'http://localhost:3000/api';
 const token = localStorage.getItem('token');
@@ -24,6 +27,8 @@ function authHeaders(extra = {}) {
 
 let ejemplaresCargados = [];
 let seleccionadosIds = new Set();
+let paginaActualAdmin = 1;
+const limitePorPagina = 20;
 
 function actualizarContadorSeleccionados() {
   const badge = document.getElementById('selectedCount');
@@ -35,28 +40,56 @@ function actualizarContadorSeleccionados() {
   }
 }
 
-async function buscar() {
-  const q = document.getElementById('searchQ').value.trim();
-  const tipo = document.getElementById('filterTipo').value;
+async function buscar(nuevaPagina = 1) {
+  paginaActualAdmin = nuevaPagina;
+  const q = document.getElementById('searchQ')?.value.trim() || '';
+  const tipo = document.getElementById('filterTipo')?.value || '';
   const orden = document.getElementById('filterOrden') ? document.getElementById('filterOrden').value : 'familia_asc';
   
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (tipo) params.set('tipo', tipo);
   if (orden) params.set('orden', orden);
+  params.set('page', paginaActualAdmin);
+  params.set('limit', limitePorPagina);
 
   try {
     const res = await fetch(`${API}/especimenes?${params.toString()}`, { headers: authHeaders() });
     if (res.status === 401) { window.location.href = 'login.html'; return; }
-    const data = await res.json();
-    ejemplaresCargados = data;
+    const respuesta = await res.json();
+    
+    const items = Array.isArray(respuesta) ? respuesta : (respuesta.datos || []);
+    const totalRegistros = respuesta.total || items.length;
+
+    ejemplaresCargados = items;
     seleccionadosIds.clear();
     actualizarContadorSeleccionados();
-    renderGrid(data);
+    renderGrid(items);
+    actualizarControlesPaginacionAdmin(totalRegistros);
   } catch (err) {
     console.error('Error al cargar ejemplares:', err);
   }
 }
+
+function actualizarControlesPaginacionAdmin(total) {
+  const totalPaginas = Math.ceil(total / limitePorPagina) || 1;
+  const pageInfo = document.getElementById('pageInfo');
+  if (pageInfo) pageInfo.textContent = `Página ${paginaActualAdmin} de ${totalPaginas}`;
+
+  const prevBtn = document.getElementById('prevPageBtn');
+  const nextBtn = document.getElementById('nextPageBtn');
+  
+  if (prevBtn) prevBtn.disabled = paginaActualAdmin <= 1;
+  if (nextBtn) nextBtn.disabled = paginaActualAdmin >= totalPaginas;
+}
+
+document.getElementById('prevPageBtn')?.addEventListener('click', () => {
+  if (paginaActualAdmin > 1) buscar(paginaActualAdmin - 1);
+});
+
+document.getElementById('nextPageBtn')?.addEventListener('click', () => {
+  buscar(paginaActualAdmin + 1);
+});
 
 function renderGrid(items) {
   const grid = document.getElementById('grid');
@@ -77,7 +110,6 @@ function renderGrid(items) {
     const estaCheck = seleccionadosIds.has(item.id) ? 'checked' : '';
 
     card.innerHTML = `
-      <!-- Fila superior: Tipo a la izquierda | Registro y Checkbox a la derecha -->
       <div class="card-header-row">
         <span class="tipo-tag">${item.tipo}</span>
         <div style="display: flex; align-items: center; gap: 8px;" onclick="event.stopPropagation();">
@@ -98,21 +130,22 @@ function renderGrid(items) {
     `;
 
     const chk = card.querySelector('.specimen-check');
-    chk.addEventListener('change', (ev) => {
-      if (ev.target.checked) {
-        seleccionadosIds.add(item.id);
-      } else {
-        seleccionadosIds.delete(item.id);
-      }
-      actualizarContadorSeleccionados();
-    });
+    if (chk) {
+      chk.addEventListener('change', (ev) => {
+        if (ev.target.checked) {
+          seleccionadosIds.add(item.id);
+        } else {
+          seleccionadosIds.delete(item.id);
+        }
+        actualizarContadorSeleccionados();
+      });
+    }
 
     card.addEventListener('click', () => abrirFormulario(item.id));
     grid.appendChild(card);
   }
 }
 
-// Checkbox maestro "Todos"
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 if (selectAllCheckbox) {
   selectAllCheckbox.addEventListener('change', (e) => {
@@ -129,7 +162,7 @@ if (selectAllCheckbox) {
 }
 
 // ------------------------------------------------------------
-// IMPRESIÓN POR LOTE DE ETIQUETAS BOTÁNICAS COMPACTAS
+// IMPRESIÓN POR LOTE DE ETIQUETAS
 // ------------------------------------------------------------
 const printLabelsBtn = document.getElementById('printLabelsBtn');
 if (printLabelsBtn) {
@@ -246,7 +279,7 @@ async function eliminarRapido(id) {
       const res = await fetch(`${API}/especimenes/${id}`, { method: 'DELETE', headers: authHeaders() });
       if (res.ok) {
         Swal.fire('¡Eliminado!', 'El espécimen ha sido borrado con éxito.', 'success');
-        buscar();
+        buscar(paginaActualAdmin);
       } else {
         Swal.fire('Error', 'No se pudo eliminar el registro.', 'error');
       }
@@ -256,9 +289,6 @@ async function eliminarRapido(id) {
   }
 }
 
-// ------------------------------------------------------------
-// LIGHTBOX ESTANDARIZADO (TACHE ROJA ARRIBA A LA DERECHA)
-// ------------------------------------------------------------
 function abrirImagenGrande(srcRuta) {
   const overlay = document.createElement('div');
   overlay.className = 'image-modal-overlay';
@@ -274,38 +304,15 @@ function abrirImagenGrande(srcRuta) {
 
   overlay.innerHTML = `
     <button type="button" id="btnCerrarFoto" style="
-      position: absolute;
-      top: 30px;
-      right: 30px;
-      width: 48px;
-      height: 48px;
-      background: #ffffff;
-      color: #153e23;
-      border: 2px solid #153e23;
-      border-radius: 50%;
-      font-size: 32px;
-      font-weight: bold;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-      z-index: 10;
-      transition: all 0.2s ease;
-    " onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.borderColor='#dc2626'; this.style.transform='scale(1.15)';" 
-      onmouseout="this.style.background='#ffffff'; this.style.color='#153e23'; this.style.borderColor='#153e23'; this.style.transform='scale(1)';"
-      title="Cerrar">&times;</button>
-
+      position: absolute; top: 30px; right: 30px; width: 48px; height: 48px;
+      background: #ffffff; color: #153e23; border: 2px solid #153e23;
+      border-radius: 50%; font-size: 32px; font-weight: bold; line-height: 1;
+      cursor: pointer; display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 10; transition: all 0.2s ease;
+    ">&times;</button>
     <img src="${srcRuta}" alt="Ejemplar ampliado" style="
-      max-width: 85vw;
-      max-height: 85vh;
-      object-fit: contain;
-      display: block;
-      border-radius: 8px;
-      border: 2px solid #2e834b;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-      background: #111;
+      max-width: 85vw; max-height: 85vh; object-fit: contain; display: block;
+      border-radius: 8px; border: 2px solid #2e834b; box-shadow: 0 10px 40px rgba(0,0,0,0.8); background: #111;
     ">
   `;
 
@@ -334,12 +341,13 @@ function abrirImagenGrande(srcRuta) {
   document.body.appendChild(overlay);
 }
 
-// ---------- Formulario (crear / editar) ----------
 const form = document.getElementById('specimenForm');
 const formOverlay = document.getElementById('formOverlay');
 
 function toggleTipoFields(fromUserAction = false) {
-  const tipo = document.getElementById('f_tipo').value;
+  const fTipo = document.getElementById('f_tipo');
+  if (!fTipo) return;
+  const tipo = fTipo.value;
   const angioFields = document.getElementById('camposAngiosperma');
   const gimnoFields = document.getElementById('camposGimnosperma');
   if (angioFields) angioFields.style.display = tipo === 'Angiosperma' ? 'grid' : 'none';
@@ -352,7 +360,6 @@ function toggleTipoFields(fromUserAction = false) {
 const fTipoSelect = document.getElementById('f_tipo');
 if (fTipoSelect) fTipoSelect.addEventListener('change', () => toggleTipoFields(true));
 
-// MODIFICADO: Se cambia 'aciculas' por 'arbol' en Gimnosperma
 const CAMPOS_FOTO_POR_TIPO = {
   Angiosperma: ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'distribucion'],
   Gimnosperma: ['general', 'cono', 'semilla', 'arbol', 'distribucion']
@@ -443,10 +450,10 @@ if (form) {
   form.addEventListener('change', async (e) => {
     if (!e.target.classList.contains('photo-input')) return;
 
-    const especimenId = document.getElementById('specimenId').value;
+    const specimenId = document.getElementById('specimenId')?.value;
     const campo = e.target.dataset.campo;
     const archivo = e.target.files[0];
-    if (!especimenId) {
+    if (!specimenId) {
       Swal.fire('Atención', 'Primero guarda el ejemplar antes de subir fotos.', 'info');
       e.target.value = '';
       return;
@@ -457,7 +464,7 @@ if (form) {
     fd.append('campo', campo); 
     fd.append('imagen', archivo);
 
-    const res = await fetch(`${API}/imagenes/${especimenId}`, {
+    const res = await fetch(`${API}/imagenes/${specimenId}`, {
       method: 'POST',
       headers: authHeaders(), 
       body: fd
@@ -500,39 +507,44 @@ async function abrirFormulario(id) {
   const d = e.detalle || {};
 
   limpiarFormulario();
-  document.getElementById('formTitle').textContent = `Editar ejemplar — ${e.numero_registro}`;
-  document.getElementById('specimenId').value = e.id;
-  document.getElementById('f_numero_registro').value = e.numero_registro;
-  document.getElementById('f_numero_registro').disabled = true; 
-  document.getElementById('f_tipo').value = e.tipo;
-  document.getElementById('f_tipo').disabled = true; 
-  document.getElementById('f_familia').value = e.familia || '';
-  document.getElementById('f_nombre_cientifico').value = e.nombre_cientifico || '';
-  document.getElementById('f_nombre_comun').value = e.nombre_comun || '';
-  document.getElementById('f_distribucion').value = e.distribucion || '';
-  document.getElementById('f_otras_caracteristicas').value = e.otras_caracteristicas || '';
+  const formTitle = document.getElementById('formTitle');
+  if (formTitle) formTitle.textContent = `Editar ejemplar — ${e.numero_registro}`;
+  
+  const specimenId = document.getElementById('specimenId');
+  if (specimenId) specimenId.value = e.id;
+  
+  const fNumReg = document.getElementById('f_numero_registro');
+  if (fNumReg) { fNumReg.value = e.numero_registro || ''; fNumReg.disabled = true; }
+  
+  const fTipo = document.getElementById('f_tipo');
+  if (fTipo) { fTipo.value = e.tipo || ''; fTipo.disabled = true; }
+
+  const setElVal = (elId, val) => {
+    const el = document.getElementById(elId);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  };
+
+  setElVal('f_familia', e.familia);
+  setElVal('f_nombre_cientifico', e.nombre_cientifico);
+  setElVal('f_nombre_comun', e.nombre_comun);
+  setElVal('f_distribucion', e.distribucion);
+  setElVal('f_otras_caracteristicas', e.otras_caracteristicas);
 
   if (e.tipo === 'Angiosperma') {
-    document.getElementById('a_hojas').value = d.hojas || '';
-    document.getElementById('a_filotaxia').value = d.filotaxia || '';
-    document.getElementById('a_flor').value = d.flor || '';
-    document.getElementById('a_fruto').value = d.fruto || '';
-    document.getElementById('a_sexualidad').value = d.sexualidad || '';
+    setElVal('a_hojas', d.hojas);
+    setElVal('a_filotaxia', d.filotaxia);
+    setElVal('a_flor', d.flor);
+    setElVal('a_fruto', d.fruto);
+    setElVal('a_sexualidad', d.sexualidad);
   } else {
-    document.getElementById('g_subgenero').value = d.subgenero || '';
-    document.getElementById('g_seccion').value = d.seccion || '';
-    document.getElementById('g_cono').value = d.cono || '';
-    document.getElementById('g_longitud_cono').value = d.longitud_cono || '';
-    document.getElementById('g_color_cono').value = d.color_cono || '';
-    document.getElementById('g_umbo').value = d.umbo || '';
-    document.getElementById('g_largo_pedunculo').value = d.largo_pedunculo || '';
-    document.getElementById('g_tipo_semilla').value = d.tipo_semilla || '';
-    document.getElementById('g_forma_aciculas').value = d.forma_aciculas || '';
-    document.getElementById('g_numero_aciculas').value = d.numero_aciculas || '';
-    document.getElementById('g_longitud_aciculas').value = d.longitud_aciculas || '';
-    document.getElementById('g_vaina').value = d.vaina || '';
-    document.getElementById('g_bractea_foliar').value = d.bractea_foliar || '';
-    document.getElementById('g_altitud').value = d.altitud || '';
+    setElVal('g_subgenero', d.subgenero);
+    setElVal('g_seccion', d.seccion);
+    setElVal('g_cono', d.cono);
+    setElVal('g_umbo', d.umbo);
+    setElVal('g_tipo_semilla', d.tipo_semilla);
+    setElVal('g_forma_aciculas', d.forma_aciculas);
+    setElVal('g_bractea_foliar', d.bractea_foliar);
+    setElVal('g_altitud', d.altitud);
   }
   
   toggleTipoFields(false);
@@ -546,9 +558,10 @@ async function abrirFormulario(id) {
   if (formOverlay) formOverlay.style.display = 'flex';
 }
 
-// --- LÓGICA DE CAMPOS PERSONALIZADOS ---
 async function renderCamposPersonalizados(camposActuales = []) {
-  const tipoActual = document.getElementById('f_tipo').value;
+  const fTipo = document.getElementById('f_tipo');
+  if (!fTipo) return;
+  const tipoActual = fTipo.value;
 
   try {
     const res = await fetch(`${API}/especimenes/campos-unicos?tipo=${tipoActual}`, { headers: authHeaders() });
@@ -574,10 +587,7 @@ async function renderCamposPersonalizados(camposActuales = []) {
     camposARenderizar.forEach((c) => {
       const row = document.createElement('div');
       row.className = 'custom-field-row';
-      row.style.display = 'flex';
-      row.style.gap = '8px';
-      row.style.alignItems = 'center';
-      row.style.marginBottom = '5px';
+      row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 5px;';
       
       row.innerHTML = `
         <input type="text" class="custom-name" placeholder="Nombre del campo" value="${c.nombre_campo || ''}" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
@@ -623,10 +633,7 @@ function asegurarBotonAgregarCampo() {
 
     const row = document.createElement('div');
     row.className = 'custom-field-row';
-    row.style.display = 'flex';
-    row.style.gap = '8px';
-    row.style.alignItems = 'center';
-    row.style.marginBottom = '5px';
+    row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 5px;';
     
     row.innerHTML = `
       <input type="text" class="custom-name" placeholder="Nombre del campo" value="" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
@@ -646,38 +653,36 @@ if (document.readyState === 'loading') {
 }
 
 function construirPayload() {
-  const tipo = document.getElementById('f_tipo').value;
+  const fTipo = document.getElementById('f_tipo');
+  const tipo = fTipo ? fTipo.value : 'Angiosperma';
+  
+  const getVal = (id) => document.getElementById(id)?.value || '';
+
   const detalle = tipo === 'Angiosperma' ? {
-    hojas: document.getElementById('a_hojas').value,
-    filotaxia: document.getElementById('a_filotaxia').value,
-    flor: document.getElementById('a_flor').value,
-    fruto: document.getElementById('a_fruto').value,
-    sexualidad: document.getElementById('a_sexualidad').value
+    hojas: getVal('a_hojas'),
+    filotaxia: getVal('a_filotaxia'),
+    flor: getVal('a_flor'),
+    fruto: getVal('a_fruto'),
+    sexualidad: getVal('a_sexualidad')
   } : {
-    subgenero: document.getElementById('g_subgenero').value,
-    seccion: document.getElementById('g_seccion').value,
-    cono: document.getElementById('g_cono').value,
-    longitud_cono: document.getElementById('g_longitud_cono').value,
-    color_cono: document.getElementById('g_color_cono').value,
-    umbo: document.getElementById('g_umbo').value,
-    largo_pedunculo: document.getElementById('g_largo_pedunculo').value,
-    tipo_semilla: document.getElementById('g_tipo_semilla').value,
-    forma_aciculas: document.getElementById('g_forma_aciculas').value,
-    numero_aciculas: document.getElementById('g_numero_aciculas').value,
-    longitud_aciculas: document.getElementById('g_longitud_aciculas').value,
-    vaina: document.getElementById('g_vaina').value,
-    bractea_foliar: document.getElementById('g_bractea_foliar').value,
-    altitud: document.getElementById('g_altitud').value
+    subgenero: getVal('g_subgenero'),
+    seccion: getVal('g_seccion'),
+    cono: getVal('g_cono'),
+    umbo: getVal('g_umbo'),
+    tipo_semilla: getVal('g_tipo_semilla'),
+    forma_aciculas: getVal('g_forma_aciculas'),
+    bractea_foliar: getVal('g_bractea_foliar'),
+    altitud: getVal('g_altitud')
   };
 
   return {
-    numero_registro: document.getElementById('f_numero_registro').value.trim(),
+    numero_registro: getVal('f_numero_registro').trim(),
     tipo,
-    familia: document.getElementById('f_familia').value,
-    nombre_cientifico: document.getElementById('f_nombre_cientifico').value,
-    nombre_comun: document.getElementById('f_nombre_comun').value,
-    distribucion: document.getElementById('f_distribucion').value,
-    otras_caracteristicas: document.getElementById('f_otras_caracteristicas').value,
+    familia: getVal('f_familia'),
+    nombre_cientifico: getVal('f_nombre_cientifico'),
+    nombre_comun: getVal('f_nombre_comun'),
+    distribucion: getVal('f_distribucion'),
+    otras_caracteristicas: getVal('f_otras_caracteristicas'),
     detalle,
     campos_personalizados: obtenerCamposPersonalizadosDesdeDOM()
   };
@@ -686,7 +691,7 @@ function construirPayload() {
 if (form) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = document.getElementById('specimenId').value;
+    const id = document.getElementById('specimenId')?.value;
     const payload = construirPayload();
     const errorMsg = document.getElementById('formError');
     if (errorMsg) errorMsg.textContent = '';
@@ -710,23 +715,27 @@ if (form) {
       if (!res.ok) { if (errorMsg) errorMsg.textContent = data.error || 'Error al guardar'; return; }
 
       if (!id) {
-        document.getElementById('specimenId').value = data.id;
-        document.getElementById('f_numero_registro').disabled = true;
-        document.getElementById('f_tipo').disabled = true;
+        const specimenId = document.getElementById('specimenId');
+        if (specimenId) specimenId.value = data.id;
+        const fNumReg = document.getElementById('f_numero_registro');
+        if (fNumReg) fNumReg.disabled = true;
+        const fTipo = document.getElementById('f_tipo');
+        if (fTipo) fTipo.disabled = true;
         const deleteBtn = document.getElementById('deleteBtn');
         if (deleteBtn) deleteBtn.style.display = 'inline-block';
         mostrarSlotsDeFoto(data.tipo);
-        document.getElementById('formTitle').textContent = `Editar ejemplar — ${data.numero_registro}`;
+        const formTitle = document.getElementById('formTitle');
+        if (formTitle) formTitle.textContent = `Editar ejemplar — ${data.numero_registro}`;
         if (errorMsg) {
           errorMsg.style.color = 'var(--forest, #2c4a3e)';
           errorMsg.textContent = 'Ejemplar guardado. Ya puedes subir imágenes.';
         }
-        buscar();
+        buscar(paginaActualAdmin);
         return;
       }
 
       if (formOverlay) formOverlay.style.display = 'none';
-      buscar();
+      buscar(paginaActualAdmin);
     } catch (err) {
       if (errorMsg) errorMsg.textContent = 'No se pudo conectar con el servidor local.';
     }
@@ -736,7 +745,7 @@ if (form) {
 const deleteBtnEl = document.getElementById('deleteBtn');
 if (deleteBtnEl) {
   deleteBtnEl.addEventListener('click', async () => {
-    const id = document.getElementById('specimenId').value;
+    const id = document.getElementById('specimenId')?.value;
     if (!id) return;
     
     const resultado = await Swal.fire({
@@ -754,7 +763,7 @@ if (deleteBtnEl) {
       const res = await fetch(`${API}/especimenes/${id}`, { method: 'DELETE', headers: authHeaders() });
       if (res.ok) {
         if (formOverlay) formOverlay.style.display = 'none';
-        buscar();
+        buscar(paginaActualAdmin);
         Swal.fire('¡Eliminado!', 'El espécimen ha sido borrado con éxito.', 'success');
       }
     }
@@ -762,16 +771,16 @@ if (deleteBtnEl) {
 }
 
 const searchBtnEl = document.getElementById('searchBtn');
-if (searchBtnEl) searchBtnEl.addEventListener('click', buscar);
+if (searchBtnEl) searchBtnEl.addEventListener('click', () => buscar(1));
 
 const searchQEl = document.getElementById('searchQ');
-if (searchQEl) searchQEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
+if (searchQEl) searchQEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(1); });
 
 const filterTipoEl = document.getElementById('filterTipo');
-if (filterTipoEl) filterTipoEl.addEventListener('change', buscar);
+if (filterTipoEl) filterTipoEl.addEventListener('change', () => buscar(1));
 
 const filterOrdenEl = document.getElementById('filterOrden');
-if (filterOrdenEl) filterOrdenEl.addEventListener('change', buscar);
+if (filterOrdenEl) filterOrdenEl.addEventListener('change', () => buscar(1));
 
 const excelInputEl = document.getElementById('excelInput');
 if (excelInputEl) {
@@ -799,7 +808,7 @@ if (excelInputEl) {
       const data = await res.json();
       if (res.ok) {
         Swal.fire('¡Importación exitosa!', data.mensaje, 'success');
-        buscar();
+        buscar(1);
       } else {
         Swal.fire('Error', `No se pudo importar: ${data.error}`, 'error');
       }
@@ -854,4 +863,30 @@ if (exportExcelBtn) {
   });
 }
 
-buscar();
+buscar(1);
+
+// ------------------------------------------------------------
+// MODO OSCURO (ADMIN)
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  const darkModeToggle = document.getElementById('darkModeToggle');
+
+  if (localStorage.getItem('darkMode') === 'enabled') {
+    document.body.classList.add('dark-mode');
+    if (darkModeToggle) darkModeToggle.textContent = '☀️ Modo Claro';
+  }
+
+  if (darkModeToggle) {
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      
+      if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', 'enabled');
+        darkModeToggle.textContent = '☀️ Modo Claro';
+      } else {
+        localStorage.setItem('darkMode', 'disabled');
+        darkModeToggle.textContent = '🌙 Modo Oscuro';
+      }
+    });
+  }
+});

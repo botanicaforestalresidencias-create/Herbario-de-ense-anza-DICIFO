@@ -171,12 +171,12 @@ body {
   background: var(--dicifo-green-dark) !important; 
 }
 
-.btn-secondary, #printPdfBtn, #btnScanCode { 
+.btn-secondary, #printPdfBtn, #btnScanCode, #darkModeToggle { 
   background: transparent !important; 
   border: 1px solid var(--uach-blue) !important; 
   color: var(--uach-blue) !important; 
 }
-.btn-secondary:hover, #printPdfBtn:hover, #btnScanCode:hover { 
+.btn-secondary:hover, #printPdfBtn:hover, #btnScanCode:hover, #darkModeToggle:hover { 
   background: var(--uach-blue) !important; 
   color: #ffffff !important; 
 }
@@ -238,7 +238,7 @@ body {
   border-radius: 6px;
   position: relative;
   cursor: pointer;
-  padding: 14px 14px 14px;
+  padding: 14px;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 .specimen-card:hover {
@@ -247,7 +247,6 @@ body {
   border-color: var(--uach-blue);
 }
 
-/* Fila superior de la tarjeta sin colisiones */
 .card-header-row {
   display: flex;
   justify-content: space-between;
@@ -480,6 +479,69 @@ body {
   transform: scale(1.05);
 }
 
+
+/* ========================================================= */
+/* --- MODO OSCURO (DARK MODE) COMPLETO Y CORREGIDO -------- */
+/* ========================================================= */
+body.dark-mode {
+  --bg-app: #0f172a;             
+  --card-bg: #1e293b;            
+  --ink: #f8fafc;                
+  --ink-soft: #94a3b8;           
+  --border-light: #334155;       
+}
+
+/* Forzar nombres científicos y etiquetas de tipo a azul cian brillante */
+body.dark-mode .specimen-card h3,
+body.dark-mode .detail-sheet h2,
+body.dark-mode div.specimen-card h3,
+body.dark-mode .tipo-tag {
+  color: #38bdf8 !important; 
+}
+
+body.dark-mode .section-title {
+  color: #38bdf8 !important;
+  border-bottom-color: var(--uach-gold);
+}
+
+body.dark-mode .spec-table td.label,
+body.dark-mode .field label {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .spec-table td {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .specimen-card .comun,
+body.dark-mode .specimen-card .familia,
+body.dark-mode .detail-sheet .comun {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .field input, 
+body.dark-mode .field select, 
+body.dark-mode .field textarea {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+body.dark-mode .specimen-card .reg-stamp {
+  background: #0f172a;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+body.dark-mode .detail-sheet {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+body.dark-mode .spec-table tr {
+  border-bottom-color: #334155;
+}
+
 /* ========================================================= */
 /* --- ESTILOS DE IMPRESIÓN PARA CÉDULAS TÉCNICAS (PDF) ---- */
 /* ========================================================= */
@@ -489,7 +551,7 @@ body {
 }
 
 @media print {
-  header, .app-header, .toolbar, #logoutBtn, #searchBtn, #printPdfBtn, #btnScanCode,
+  header, .app-header, .toolbar, #logoutBtn, #searchBtn, #printPdfBtn, #btnScanCode, #darkModeToggle,
   .close-btn, .btn, input, select, label, .empty-state,
   .image-modal-overlay, #scannerModal, #detailOverlay, .no-print,
   .main-layout, #grid, .specimen-grid {
@@ -537,15 +599,17 @@ body {
     break-inside: avoid !important;
   }
 
+  .print-page-item h2, .print-page-item .comun, body, .print-page-item, .spec-table, .spec-table td {
+    color: #000000 !important;
+  }
+
   .print-page-item h2 {
     font-size: 15px !important;
     margin: 2px 0 !important;
-    color: #0f172a !important;
   }
 
   .print-page-item .comun {
     font-size: 11px !important;
-    color: #334155 !important;
     margin-bottom: 4px !important;
   }
 
@@ -561,9 +625,9 @@ body {
   .spec-table td { padding: 2px 5px !important; background: transparent !important; }
   .spec-table td.label {
     font-weight: bold !important;
-    color: #1e293b !important;
+    color: #000000 !important;
     width: 22% !important;
-    background: #f1f5f9 !important;
+    background: #e2e8f0 !important;
     font-size: 9.5px !important;
   }
 
@@ -573,11 +637,10 @@ body {
     width: 60px !important;
     height: 60px !important;
     object-fit: cover !important;
-    border: 1px solid #64748b !important;
+    border: 1px solid #000000 !important;
     border-radius: 3px !important;
   } 
 
-  /* Ajustes específicos para el PDF impreso del nuevo layout */
   .ficha-header-layout {
     display: flex !important;
     justify-content: space-between !important;
@@ -586,17 +649,16 @@ body {
   
   .badge-folio {
     font-size: 11px !important;
-    border-color: #94a3b8 !important;
-    background: transparent !important;
-    color: #0f172a !important;
-    padding: 0 !important;
     border: none !important;
+    background: transparent !important;
+    color: #000000 !important;
+    padding: 0 !important;
   }
 
   .main-photo-box img {
     width: 90px !important;
     height: 90px !important;
-    border-color: #94a3b8 !important;
+    border: 1px solid #000000 !important;
     box-shadow: none !important;
   }
 }
@@ -633,7 +695,6 @@ body {
   }
 }
 
-/* Tarjeta física compacta (33mm de altura) */
 .herb-label-card {
   border: 1px dashed #777;
   padding: 4px 8px;
@@ -746,4 +807,59 @@ body {
   color: #ffffff !important;
   border-color: #dc2626 !important;
   transform: scale(1.15) !important;
+}
+
+/* ========================================================= */
+/* --- SOLUCIÓN DEFINITIVA DE IMPRESIÓN EN MODO OSCURO ----- */
+/* ========================================================= */
+@media print {
+  body.dark-mode,
+  body.dark-mode .print-page-item,
+  body.dark-mode .print-page-item h2,
+  body.dark-mode .print-page-item .comun,
+  body.dark-mode .spec-table td,
+  body.dark-mode .section-title,
+  body.dark-mode .badge-folio {
+    color: #000000 !important;
+    background: transparent !important;
+  }
+
+  body.dark-mode .spec-table td.label {
+    background-color: #e2e8f0 !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* ========================================================= */
+/* --- SOLUCIÓN ULTRA-FORZADA PARA IMPRESIÓN EN MODO OSCURO --- */
+/* ========================================================= */
+@media print {
+  body.dark-mode #print-container,
+  body.dark-mode #print-container *,
+  body.dark-mode .print-page-item,
+  body.dark-mode .print-page-item *,
+  body.dark-mode .spec-table,
+  body.dark-mode .spec-table tr,
+  body.dark-mode .spec-table td,
+  body.dark-mode .spec-table th,
+  body.dark-mode h2,
+  body.dark-mode p,
+  body.dark-mode span,
+  body.dark-mode div {
+    color: #000000 !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  body.dark-mode .print-page-item {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+
+  body.dark-mode .spec-table td.label {
+    background-color: #e2e8f0 !important;
+    font-weight: bold !important;
+  }
 }
