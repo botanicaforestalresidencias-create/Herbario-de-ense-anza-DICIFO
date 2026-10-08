@@ -92,6 +92,16 @@
             🌙 Modo Oscuro
           </button>
         </div>
+
+        <!-- TARJETA DE CARGA MASIVA AUTOMÁTICA -->
+        <div class="card" style="width: 100%; margin-top: 20px; padding: 20px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);">
+          <h3>Carga Masiva Automática de Imágenes por Carpeta</h3>
+          <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 12px;">
+            Selecciona la carpeta principal de tus imágenes (ej. <code>Árboles</code>, <code>Flores</code>, <code>Conos</code>). El sistema detectará automáticamente el nombre científico exacto (incluyendo variedades como <em>var. chihuahuana</em>) y distribuirá las fotos.
+          </p>
+          <input type="file" id="folderInput" webkitdirectory directory multiple class="btn btn-secondary" style="width: 100%;">
+          <div id="uploadProgress" style="margin-top: 10px; font-weight: bold; font-size: 0.95rem;"></div>
+        </div>
       </div>
 
       <div class="content">

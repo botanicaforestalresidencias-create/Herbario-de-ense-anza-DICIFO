@@ -1,5 +1,5 @@
 /* ============================================================
-   HERBARIO DIGITAL - ADMIN.JS (CON PAGINACIÓN)
+   HERBARIO DIGITAL - ADMIN.JS (CON CARGA MASIVA Y SWEETALERT)
    ============================================================ */
 const API = 'https://curator-activist-unheard.ngrok-free.dev/api';
 //const API = 'http://localhost:3000/api';
@@ -888,5 +888,52 @@ document.addEventListener('DOMContentLoaded', () => {
         darkModeToggle.textContent = '🌙 Modo Oscuro';
       }
     });
+  }
+});
+
+// ------------------------------------------------------------
+// CARGA MASIVA AUTOMÁTICA DE FOTOS POR CARPETA (CON SWEETALERT)
+// ------------------------------------------------------------
+document.getElementById('folderInput')?.addEventListener('change', async (event) => {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+
+  const formData = new FormData();
+  for (let i = 0; i < files.length; i++) {
+    formData.append('imagenes', files[i]);
+  }
+
+  Swal.fire({
+    title: 'Procesando imágenes...',
+    text: `Subiendo y distribuyendo ${files.length} archivos, por favor espera.`,
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  try {
+    const response = await fetch(`${API}/especimenes/upload-folder`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      Swal.fire(
+        '¡Proceso completado!', 
+        `Se asociaron y distribuyeron con éxito ${data.procesadas} de ${files.length} imágenes.`, 
+        'success'
+      );
+      buscar(paginaActualAdmin);
+    } else {
+      Swal.fire('Error', data.error || 'No se pudo completar la carga', 'error');
+    }
+  } catch (error) {
+    console.error('Error de red:', error);
+    Swal.fire('Error de red', 'No se pudo conectar con el servidor al intentar subir la carpeta.', 'error');
+  } finally {
+    event.target.value = '';
   }
 });

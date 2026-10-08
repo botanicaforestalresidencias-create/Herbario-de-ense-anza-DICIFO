@@ -1,5 +1,5 @@
 /* ============================================================
-   HERBARIO DIGITAL - ESPECIMENES.JS (CON PAGINACIÓN)
+   HERBARIO DIGITAL - ESPECIMENES.JS (CON CARGA INTELIGENTE Y ANTI-DUPLICADOS)
    ============================================================ */
 const express = require('express');
 const router = express.Router();
@@ -7,8 +7,26 @@ const pool = require('../db');
 const { requireAuth, requireAdmin } = require('./auth');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const path = require('path');
+const fs = require('fs');
 
 const uploadExcel = multer({ storage: multer.memoryStorage() });
+
+// Configuración de multer para la carga masiva automática de carpetas
+const storageCarpeta = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../public/uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
+  }
+});
+const uploadCarpeta = multer({ storage: storageCarpeta });
 
 // Helper: builds the complete specimen object (general + detail + images + custom fields)
 async function getEspecimenCompleto(id) {
@@ -50,6 +68,94 @@ async function getEspecimenCompleto(id) {
 
   return { ...especimen, detalle, imagenes, campos_personalizados: personalizados || [] };
 }
+
+// ------------------------------------------------------------
+// POST /api/especimenes/upload-folder -> Carga automática con soporte de variedades y anti-duplicados
+// ------------------------------------------------------------
+router.post('/upload-folder', requireAuth, requireAdmin, uploadCarpeta.array('imagenes'), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No se seleccionó ninguna imagen.' });
+  }
+
+  const conn = await pool.getConnection();
+  let procesadas = 0;
+
+  try {
+    await conn.beginTransaction();
+
+    for (const file of req.files) {
+      const nombreOriginal = file.originalname;
+      const nombreLimpio = path.parse(nombreOriginal).name.trim();
+
+      // 1. Búsqueda exacta (para contemplar variedades como "Pinus leiophylla var. chihuahuana")
+      let [rows] = await conn.query(
+        'SELECT id, tipo FROM especimenes WHERE TRIM(nombre_cientifico) = ?', 
+        [nombreLimpio]
+      );
+
+      // 2. Búsqueda de respaldo si no encuentra la coincidencia exacta estricta
+      if (rows.length === 0) {
+        [rows] = await conn.query(
+          'SELECT id, tipo FROM especimenes WHERE nombre_cientifico LIKE ?', 
+          [`%${nombreLimpio}%`]
+        );
+      }
+
+      if (rows.length > 0) {
+        const especimen = rows[0];
+        const especimenId = especimen.id;
+
+        // Detección automática del campo basándonos en la ruta o nombre de la subcarpeta seleccionada
+        let campoAsignado = 'Árboles';
+        const rutaRelativaOriginal = (file.webkitRelativePath || '').toLowerCase();
+        
+        if (rutaRelativaOriginal.includes('flor')) campoAsignado = 'Flores';
+        else if (rutaRelativaOriginal.includes('fruto')) campoAsignado = 'Frutos';
+        else if (rutaRelativaOriginal.includes('cono')) campoAsignado = 'Conos';
+        else if (rutaRelativaOriginal.includes('semilla')) campoAsignado = 'Semilla';
+        else if (rutaRelativaOriginal.includes('distribucion')) campoAsignado = 'Distribución';
+
+        const rutaRelativaServidor = `/uploads/${file.filename}`;
+
+        // 3. VALIDACIÓN ANTI-DUPLICADOS: Verificar si ya existe un archivo con nombre idéntico registrado para este espécimen
+        const [imagenExistente] = await conn.query(
+          'SELECT id FROM imagenes WHERE especimen_id = ? AND ruta_archivo LIKE ?',
+          [especimenId, `%${path.basename(file.filename).split('-').slice(1).join('-')}%`]
+        );
+
+        if (imagenExistente.length === 0) {
+          await conn.query(
+            'INSERT INTO imagenes (especimen_id, ruta_archivo, campo) VALUES (?, ?, ?)',
+            [especimenId, rutaRelativaServidor, campoAsignado]
+          );
+          procesadas++;
+        } else {
+          // Si ya estaba registrada, borramos el archivo temporal subido para no duplicar espacio en disco
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            console.error('Error al limpiar archivo duplicado:', e);
+          }
+        }
+      } else {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (e) {
+          console.error('Error al limpiar archivo huérfano:', e);
+        }
+      }
+    }
+
+    await conn.commit();
+    res.json({ ok: true, procesadas });
+  } catch (err) {
+    await conn.rollback();
+    console.error('Error en carga masiva automática:', err);
+    res.status(500).json({ error: 'Error interno al procesar los archivos.' });
+  } finally {
+    conn.release();
+  }
+});
 
 // ------------------------------------------------------------
 // GET /api/especimenes/campos-unicos
@@ -554,7 +660,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
               `UPDATE especimenes 
                SET numero_registro = ?, tipo = ?, familia = ?, nombre_cientifico = ?, nombre_comun = ?, distribucion = ?, otras_caracteristicas = ?
                WHERE id = ?`,
-              [folioOficial, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, especimenId]
+              [folioOficial, tipo, familia, especie, nombre_comun, distribucion, outras_caracteristicas, especimenId]
             );
 
             if (tipo === 'Angiosperma') {
