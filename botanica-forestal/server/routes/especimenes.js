@@ -204,7 +204,7 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
     const [angios] = await pool.query(`
       SELECT 
         e.id,
-        e.numero_registro,
+        e.CODIGO,
         e.familia,
         e.nombre_cientifico,
         e.nombre_comun,
@@ -218,13 +218,13 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
       FROM especimenes e
       LEFT JOIN angiospermas_detalle a ON e.id = a.especimen_id
       WHERE e.tipo LIKE '%Angio%'
-      ORDER BY CAST(e.numero_registro AS UNSIGNED) ASC, e.numero_registro ASC
+      ORDER BY CAST(e.CODIGO AS UNSIGNED) ASC, e.CODIGO ASC
     `);
 
     const [gimnos] = await pool.query(`
       SELECT 
         e.id,
-        e.numero_registro,
+        e.CODIGO,
         e.familia,
         e.nombre_cientifico,
         e.nombre_comun,
@@ -241,12 +241,12 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
       FROM especimenes e
       LEFT JOIN gimnospermas_detalle g ON e.id = g.especimen_id
       WHERE e.tipo LIKE '%Gimno%'
-      ORDER BY CAST(e.numero_registro AS UNSIGNED) ASC, e.numero_registro ASC
+      ORDER BY CAST(e.CODIGO AS UNSIGNED) ASC, e.CODIGO ASC
     `);
 
     const angioData = angios.map(r => {
       const filaBase = {
-        'REGISTRO': r.numero_registro || '',
+        'REGISTRO': r.CODIGO || '',
         'FAMILIA': r.familia || '',
         'NOMBRE CIENTÍFICO': r.nombre_cientifico || '',
         'NOMBRE COMÚN': r.nombre_comun || '',
@@ -263,7 +263,7 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 
     const gimnoData = gimnos.map(r => {
       const filaBase = {
-        'REGISTRO': r.numero_registro || '',
+        'REGISTRO': r.CODIGO || '',
         'FAMILIA': r.familia || '',
         'NOMBRE CIENTÍFICO': r.nombre_cientifico || '',
         'NOMBRE COMÚN': r.nombre_comun || '',
@@ -304,17 +304,17 @@ router.get('/exportar/excel', requireAuth, async (req, res) => {
 // GET /api/especimenes (Con Soporte de Paginación)
 // ------------------------------------------------------------
 router.get('/', requireAuth, async (req, res) => {
-  const { q, tipo, familia, numero_registro, page = 1, limit = 20 } = req.query;
-  let sql = 'SELECT id, numero_registro, tipo, familia, nombre_cientifico, nombre_comun FROM especimenes WHERE 1=1';
+  const { q, tipo, familia, CODIGO, page = 1, limit = 20 } = req.query;
+  let sql = 'SELECT id, CODIGO, tipo, familia, nombre_cientifico, nombre_comun FROM especimenes WHERE 1=1';
   let countSql = 'SELECT COUNT(*) as total FROM especimenes WHERE 1=1';
   const params = [];
   const countParams = [];
 
   const aplicarFiltros = (baseQuery, targetParams) => {
     let qStr = baseQuery;
-    if (numero_registro) {
-      const regLimpio = String(numero_registro).replace(/[* \r\n\t]/g, '').trim();
-      qStr += ' AND (TRIM(numero_registro) = ? OR numero_registro LIKE ?)';
+    if (CODIGO) {
+      const regLimpio = String(CODIGO).replace(/[* \r\n\t]/g, '').trim();
+      qStr += ' AND (TRIM(CODIGO) = ? OR CODIGO LIKE ?)';
       targetParams.push(regLimpio, `%${regLimpio}%`);
     }
     if (tipo) {
@@ -327,7 +327,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
     if (q) {
       const qLimpio = q.trim();
-      qStr += ' AND (nombre_cientifico LIKE ? OR nombre_comun LIKE ? OR familia LIKE ? OR numero_registro LIKE ?)';
+      qStr += ' AND (nombre_cientifico LIKE ? OR nombre_comun LIKE ? OR familia LIKE ? OR CODIGO LIKE ?)';
       targetParams.push(`%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`, `%${qLimpio}%`);
     }
     return qStr;
@@ -336,7 +336,7 @@ router.get('/', requireAuth, async (req, res) => {
   const finalCountSql = aplicarFiltros(countSql, countParams);
   sql = aplicarFiltros(sql, params);
 
-  sql += ' ORDER BY CAST(numero_registro AS UNSIGNED) ASC, familia ASC LIMIT ? OFFSET ?';
+  sql += ' ORDER BY CAST(CODIGO AS UNSIGNED) ASC, familia ASC LIMIT ? OFFSET ?';
   const limitNum = parseInt(limit, 10) || 20;
   const offsetNum = (parseInt(page, 10) - 1) * limitNum;
   params.push(limitNum, offsetNum);
@@ -374,13 +374,13 @@ router.get('/:id', requireAuth, async (req, res) => {
 // ------------------------------------------------------------
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const {
-    numero_registro, tipo, familia,
+    CODIGO, tipo, familia,
     nombre_cientifico, nombre_comun, distribucion,
     otras_caracteristicas, detalle, campos_personalizados
   } = req.body;
 
-  if (!numero_registro || !tipo) {
-    return res.status(400).json({ error: 'numero_registro y tipo son obligatorios' });
+  if (!CODIGO || !tipo) {
+    return res.status(400).json({ error: 'CODIGO y tipo son obligatorios' });
   }
 
   const conn = await pool.getConnection();
@@ -389,9 +389,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 
     const [result] = await conn.query(
       `INSERT INTO especimenes
-       (numero_registro, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por)
+       (CODIGO, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [numero_registro.trim(), tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
+      [CODIGO.trim(), tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
     );
 
     const especimenId = result.insertId;
@@ -599,8 +599,8 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
 
           const [rowsExiste] = await conn.query(
             `SELECT id FROM especimenes 
-             WHERE (TRIM(numero_registro) = ? AND ? != '') 
-                OR (TRIM(numero_registro) = ? AND ? != '')`,
+             WHERE (TRIM(CODIGO) = ? AND ? != '') 
+                OR (TRIM(CODIGO) = ? AND ? != '')`,
             [registroExcel, registroExcel, claveExcel, claveExcel]
           );
           
@@ -623,7 +623,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
 
           if (rowsExiste.length === 0) {
             const [result] = await conn.query(
-              `INSERT INTO especimenes (numero_registro, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por) 
+              `INSERT INTO especimenes (CODIGO, tipo, familia, nombre_cientifico, nombre_comun, distribucion, otras_caracteristicas, creado_por) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
               [folioOficial, tipo, familia, especie, nombre_comun, distribucion, otras_caracteristicas, req.user.id]
             );
@@ -658,7 +658,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
 
             await conn.query(
               `UPDATE especimenes 
-               SET numero_registro = ?, tipo = ?, familia = ?, nombre_cientifico = ?, nombre_comun = ?, distribucion = ?, otras_caracteristicas = ?
+               SET CODIGO = ?, tipo = ?, familia = ?, nombre_cientifico = ?, nombre_comun = ?, distribucion = ?, otras_caracteristicas = ?
                WHERE id = ?`,
               [folioOficial, tipo, familia, especie, nombre_comun, distribucion, outras_caracteristicas, especimenId]
             );
