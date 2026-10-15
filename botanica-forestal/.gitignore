@@ -3,3 +3,4 @@ node_modules/
 ngrok.exe
 ngrok.zip
 .DS_Store
+uploads/
