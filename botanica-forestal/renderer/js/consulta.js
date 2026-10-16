@@ -586,7 +586,7 @@ if (btnScanCode) {
 
 async function procesarLecturaExitosa(rawText) {
   escaneandoActivo = false;
-  const codigoLimpio = rawText.replace(/[^a-zA-Z0-9_-]/g, '').trim();
+  const numero_registroLimpio = rawText.replace(/[^a-zA-Z0-9_-]/g, '').trim();
   await detenerScannerCamara();
 
   const inputQ = document.getElementById('searchQ');
@@ -599,7 +599,7 @@ async function procesarLecturaExitosa(rawText) {
 
   setTimeout(async () => {
     try {
-      let res = await fetch(`${API}/especimenes?numero_registro=${encodeURIComponent(codigoLimpio)}`, {
+      let res = await fetch(`${API}/especimenes?CODIGO=${encodeURIComponent(codigoLimpio)}`, {
         headers: authHeaders()
       });
 
