@@ -6,6 +6,21 @@
   "display": "standalone",
   "background_color": "#153e23",
   "theme_color": "#153e23",
+  "screenshots": [
+    {
+      "src": "screenshots/login-desktop.png",
+      "sizes": "882x561",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Inicio de sesión en escritorio"
+    },
+    {
+      "src": "screenshots/login-mobile.png",
+      "sizes": "375x740",
+      "type": "image/png",
+      "label": "Inicio de sesión en móvil"
+    }
+  ],
 
   "icons": [
     {
