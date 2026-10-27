@@ -595,11 +595,11 @@ async function procesarLecturaExitosa(rawText) {
 
   if (inputQ) inputQ.value = '';
   if (selectTipo) selectTipo.value = '';
-  if (inputReg) inputReg.value = codigoLimpio;
+  if (inputReg) inputReg.value = numero_registroLimpio;
 
   setTimeout(async () => {
     try {
-      let res = await fetch(`${API}/especimenes?CODIGO=${encodeURIComponent(codigoLimpio)}`, {
+      let res = await fetch(`${API}/especimenes?CODIGO=${encodeURIComponent(numero_registroLimpio)}`, {
         headers: authHeaders()
       });
 
@@ -607,7 +607,7 @@ async function procesarLecturaExitosa(rawText) {
       let items = Array.isArray(data) ? data : (data.datos || []);
 
       if (!items || items.length === 0) {
-        const resFallback = await fetch(`${API}/especimenes?q=${encodeURIComponent(codigoLimpio)}`, {
+        const resFallback = await fetch(`${API}/especimenes?q=${encodeURIComponent(numero_registroLimpio)}`, {
           headers: authHeaders()
         });
         if (resFallback.ok) {
@@ -621,7 +621,7 @@ async function procesarLecturaExitosa(rawText) {
         renderGrid(items);
         verDetalle(items[0].id);
       } else {
-        alert(`Código leído: "${codigoLimpio}", pero no coincide con ningún registro en la base de datos.`);
+        alert(`Código leído: "${numero_registroLimpio}", pero no coincide con ningún registro en la base de datos.`);
       }
     } catch (err) {
       console.error('Fallo en la petición del ejemplar:', err);
