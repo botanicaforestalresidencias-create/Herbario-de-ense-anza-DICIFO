@@ -21,7 +21,7 @@ CREATE TABLE usuarios (
 -- ------------------------------------------------------------
 CREATE TABLE especimenes (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
-  numero_registro     VARCHAR(30) NOT NULL UNIQUE,   -- "Clave" / folio físico y para QR
+  numero_registro     VARCHAR(30) NOT NULL UNIQUE,   -- / folio físico y para QR
   tipo                ENUM('Angiosperma', 'Gimnosperma') NOT NULL,
   familia             VARCHAR(100),
   nombre_cientifico   VARCHAR(200),

@@ -20,7 +20,7 @@ function createWindow() {
   });
 
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'login.html'));
+  mainWindow.loadURL('http://localhost:3000/login.html');
 }
 
 app.whenReady().then(() => {

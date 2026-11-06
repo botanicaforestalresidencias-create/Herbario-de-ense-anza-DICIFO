@@ -1,5 +1,5 @@
-const CACHE_NAME = 'herbario-dicifo-v3';
-const OFFLINE_FALLBACK = './consulta.html';
+const CACHE_NAME = 'herbario-dicifo-v4'; // Incrementamos la versión para limpiar cachés viejas
+const OFFLINE_FALLBACK = './login.html';
 const OFFLINE_API_MESSAGE = 'Ejemplar no disponible sin conexión. Conéctate a internet para sincronizarlo.';
 
 const PRECACHE_ASSETS = [
@@ -71,12 +71,26 @@ self.addEventListener('fetch', (event) => {
 
   if (!isRequestCacheable(request)) return;
 
+  // Estrategia de navegación blindada contra páginas de advertencia ajenas (como ngrok)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(async (response) => {
           if (response && response.ok) {
-            await cacheResponse(request, response);
+            // Clonamos la respuesta para revisar su contenido de texto antes de cachearla
+            const clonedResponse = response.clone();
+            try {
+              const responseText = await clonedResponse.text();
+              // Validamos que NO sea una página de advertencia de ngrok
+              if (!responseText.includes('ngrok') && !responseText.includes('ERR_NGROK')) {
+                await cacheResponse(request, response);
+              } else {
+                console.warn('Se bloqueó el almacenamiento en caché de una página de advertencia de ngrok.');
+              }
+            } catch (err) {
+              // Si falla la lectura del texto, cacheamos de forma segura si es ok
+              await cacheResponse(request, response);
+            }
           }
           return response;
         })
@@ -84,7 +98,6 @@ self.addEventListener('fetch', (event) => {
           return (
             (await caches.match(request)) ||
             (await caches.match(OFFLINE_FALLBACK)) ||
-            (await caches.match('./login.html')) ||
             new Response('<html><body><h1>Sin conexión</h1></body></html>', {
               headers: { 'Content-Type': 'text/html; charset=utf-8' },
               status: 503
