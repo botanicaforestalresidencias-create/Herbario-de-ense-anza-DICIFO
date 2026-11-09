@@ -1,32 +1,35 @@
+/* ============================================================
+   IMPORTAR IMÁGENES DESDE CARPETA LOCAL (uso único, por consola)
+   Uso:  node importar_imagenes.js            -> solo agrega imágenes
+         node importar_imagenes.js --limpiar  -> borra antes las imágenes existentes
+   ============================================================ */
 const fs = require('fs');
 const path = require('path');
-const pool = require('./server/db'); // Conexión a tu base de datos
+const pool = require('./server/db');
 
 const RUTA_IMAGENES = 'F:\\Imagenes';
-const RUTA_DESTINO_UPLOADS = path.join(__dirname, 'uploads');
+const RUTA_DESTINO_UPLOADS = path.join(__dirname, 'server', 'public', 'uploads');
+const LIMPIAR_ANTES = process.argv.includes('--limpiar');
 
-const MAPEO_CAMPOS = {
-  'distribucion': 'distribucion',
-  'flores': 'flor',
-  'frutos': 'fruto',
-  'arboles': 'arbol',
-  'conos': 'cono'
+const normalizarTexto = (t) => String(t || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const CAMPO_POR_CARPETA = {
+  'arboles': 'arbol', 'flores': 'flor', 'flor': 'flor',
+  'frutos': 'fruto', 'fruto': 'fruto',
+  'conos': 'cono', 'cono': 'cono',
+  'semillas': 'semilla', 'semilla': 'semilla',
+  'distribucion': 'distribucion', 'hojas': 'hojas', 'sexualidad': 'sexualidad'
 };
 
 async function limpiarImagenesAnteriores() {
-  console.log('[🧹] Limpiando registros anteriores de imágenes en la base de datos...');
+  console.log('[!] Borrando imágenes anteriores (base de datos y archivos)...');
   await pool.query('DELETE FROM imagenes');
-
-  console.log('[🧹] Limpiando archivos físicos anteriores de la carpeta uploads...');
   if (fs.existsSync(RUTA_DESTINO_UPLOADS)) {
-    const archivos = fs.readdirSync(RUTA_DESTINO_UPLOADS);
-    for (const archivo of archivos) {
+    for (const archivo of fs.readdirSync(RUTA_DESTINO_UPLOADS)) {
       fs.unlinkSync(path.join(RUTA_DESTINO_UPLOADS, archivo));
     }
-  } else {
-    fs.mkdirSync(RUTA_DESTINO_UPLOADS, { recursive: true });
   }
-  console.log('[✔] ¡Pizarra limpia!');
 }
 
 async function importarCarpeta(directorio) {
@@ -34,58 +37,49 @@ async function importarCarpeta(directorio) {
     console.log(`[!] La ruta no existe: ${directorio}`);
     return;
   }
-  
-  const subcarpetas = fs.readdirSync(directorio, { withFileTypes: true });
+  fs.mkdirSync(RUTA_DESTINO_UPLOADS, { recursive: true });
 
-  for (const sub of subcarpetas) {
-    if (sub.isDirectory()) {
-      const nombreCarpeta = sub.name.toLowerCase();
-      const campoDb = MAPEO_CAMPOS[nombreCarpeta] || 'general';
-      const rutaSubCarpeta = path.join(directorio, sub.name);
-      
-      const archivos = fs.readdirSync(rutaSubCarpeta);
+  for (const sub of fs.readdirSync(directorio, { withFileTypes: true })) {
+    if (!sub.isDirectory()) continue;
+    const campo = CAMPO_POR_CARPETA[normalizarTexto(sub.name)];
+    if (!campo) {
+      console.log(`[!] Carpeta sin campo asignado, se omite: ${sub.name}`);
+      continue;
+    }
 
-      for (const archivo of archivos) {
-        if (/\.(jpg|jpeg|png|webp)$/i.test(archivo)) {
-          const nombreIdentificador = path.parse(archivo).name.trim();
-          
-          // Búsqueda estricta y exacta
-          const [rows] = await pool.query(
-            `SELECT id FROM especimenes WHERE TRIM(nombre_cientifico) = ? OR TRIM(numero_registro) = ?`,
-            [nombreIdentificador, nombreIdentificador]
-          );
+    const rutaSub = path.join(directorio, sub.name);
+    for (const archivo of fs.readdirSync(rutaSub)) {
+      if (!/\.(jpg|jpeg|png|webp)$/i.test(archivo)) continue;
 
-          if (rows.length > 0) {
-            const especimenId = rows[0].id;
-            const ext = path.extname(archivo);
-            const nuevoNombreArchivo = `img_${especimenId}_${Date.now()}${ext}`;
-            const origen = path.join(rutaSubCarpeta, archivo);
-            const destino = path.join(RUTA_DESTINO_UPLOADS, nuevoNombreArchivo);
-
-            fs.copyFileSync(origen, destino);
-
-            await pool.query(
-              `INSERT INTO imagenes (especimen_id, ruta_archivo, campo) VALUES (?, ?, ?)`,
-              [especimenId, nuevoNombreArchivo, campoDb]
-            );
-
-            console.log(`[✔] Asignada: ${archivo} -> Espécimen ID ${especimenId} [${campoDb}]`);
-          } else {
-            console.log(`[✖] Sin coincidencia exacta en BD para: ${archivo}`);
-          }
-        }
+      const nombre = path.parse(archivo).name.trim();
+      const [rows] = await pool.query(
+        'SELECT id FROM especimenes WHERE TRIM(nombre_cientifico) = ? OR TRIM(numero_registro) = ?',
+        [nombre, nombre]
+      );
+      if (rows.length !== 1) {
+        console.log(`[✖] Sin coincidencia única en BD para: ${archivo}`);
+        continue;
       }
+
+      const especimenId = rows[0].id;
+      const nuevoNombre = `img_${especimenId}_${Date.now()}_${Math.round(Math.random() * 1e6)}${path.extname(archivo)}`;
+      fs.copyFileSync(path.join(rutaSub, archivo), path.join(RUTA_DESTINO_UPLOADS, nuevoNombre));
+
+      await pool.query(
+        'INSERT INTO imagenes (especimen_id, ruta_archivo, campo, descripcion) VALUES (?, ?, ?, ?)',
+        [especimenId, nuevoNombre, campo, archivo]
+      );
+      console.log(`[✔] ${archivo} -> ID ${especimenId} [${campo}]`);
     }
   }
 }
 
 async function iniciarProceso() {
   try {
-    await limpiarImagenesAnteriores();
-    console.log('\nIniciando importación masiva exacta...');
+    if (LIMPIAR_ANTES) await limpiarImagenesAnteriores();
     await importarCarpeta(path.join(RUTA_IMAGENES, 'Angiospermas'));
     await importarCarpeta(path.join(RUTA_IMAGENES, 'Gimnospermas'));
-    console.log('\n¡Proceso finalizado con éxito!');
+    console.log('\n¡Proceso finalizado!');
     process.exit(0);
   } catch (err) {
     console.error('Error:', err);

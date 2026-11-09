@@ -1,7 +1,7 @@
 /* ============================================================
    HERBARIO DIGITAL - ADMIN.JS (CON CARGA MASIVA Y SWEETALERT)
    ============================================================ */
-const API = 'https://curator-activist-unheard.ngrok-free.dev/api';
+const API = location.hostname === 'localhost' ? '/api' : 'https://curator-activist-unheard.ngrok-free.dev/api';
 //const API = 'http://localhost:3000/api';
 const token = localStorage.getItem('token');
 const sesion = JSON.parse(localStorage.getItem('sesion') || 'null');
@@ -361,10 +361,10 @@ const fTipoSelect = document.getElementById('f_tipo');
 if (fTipoSelect) fTipoSelect.addEventListener('change', () => toggleTipoFields(true));
 
 const CAMPOS_FOTO_POR_TIPO = {
-  Angiosperma: ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'distribucion'],
-  Gimnosperma: ['general', 'cono', 'semilla', 'arbol', 'distribucion']
+  Angiosperma: ['hojas', 'flor', 'fruto', 'sexualidad', 'arbol', 'distribucion'],
+  Gimnosperma: ['cono', 'semilla', 'arbol', 'distribucion']
 };
-const TODOS_LOS_CAMPOS_FOTO = ['general', 'hojas', 'flor', 'fruto', 'sexualidad', 'cono', 'semilla', 'arbol', 'distribucion'];
+const TODOS_LOS_CAMPOS_FOTO = ['hojas', 'flor', 'fruto', 'sexualidad', 'cono', 'semilla', 'arbol', 'distribucion'];
 
 function limpiarFormulario() {
   if (form) form.reset();
@@ -437,8 +437,8 @@ function renderGaleria(imagenes) {
   });
 
   imagenes.forEach((img) => {
-    const campo = TODOS_LOS_CAMPOS_FOTO.includes(img.campo) ? img.campo : 'general';
-    const contenedor = document.getElementById(`thumbs_${campo}`);
+    if (!TODOS_LOS_CAMPOS_FOTO.includes(img.campo)) return;
+    const contenedor = document.getElementById(`thumbs_${img.campo}`);
     if (!contenedor) return;
 
     const thumb = crearThumbElement(img);
@@ -895,44 +895,63 @@ document.addEventListener('DOMContentLoaded', () => {
 // CARGA MASIVA AUTOMÁTICA DE FOTOS POR CARPETA (CON SWEETALERT)
 // ------------------------------------------------------------
 document.getElementById('folderInput')?.addEventListener('change', async (event) => {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
+  const files = Array.from(event.target.files || []);
+  if (files.length === 0) return;
 
-  const formData = new FormData();
-  for (let i = 0; i < files.length; i++) {
-    formData.append('imagenes', files[i]);
-  }
+  // Se suben en lotes pequeños para evitar el 408 de la conexión por ngrok
+  const TAMANO_LOTE = 10;
+  let procesadasTotal = 0;
+  const fallidos = [];
 
   Swal.fire({
     title: 'Procesando imágenes...',
-    text: `Subiendo y distribuyendo ${files.length} archivos, por favor espera.`,
+    text: `Subiendo ${files.length} archivos por lotes, por favor espera.`,
     allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
+    didOpen: () => { Swal.showLoading(); }
   });
 
   try {
-    const response = await fetch(`${API}/especimenes/upload-folder`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    });
+    for (let inicio = 0; inicio < files.length; inicio += TAMANO_LOTE) {
+      const lote = files.slice(inicio, inicio + TAMANO_LOTE);
+      const formData = new FormData();
+      lote.forEach((archivo) => {
+        formData.append('imagenes', archivo);
+        formData.append('rutas', archivo.webkitRelativePath || archivo.name);
+      });
 
-    const data = await response.json();
-    if (response.ok) {
-      Swal.fire(
-        '¡Proceso completado!', 
-        `Se asociaron y distribuyeron con éxito ${data.procesadas} de ${files.length} imágenes.`, 
-        'success'
-      );
-      buscar(paginaActualAdmin);
-    } else {
-      Swal.fire('Error', data.error || 'No se pudo completar la carga', 'error');
+      Swal.update({
+        text: `Subiendo ${Math.min(inicio + TAMANO_LOTE, files.length)} de ${files.length}...`
+      });
+
+      try {
+        const response = await fetch(`${API}/especimenes/upload-folder`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          procesadasTotal += data.procesadas || 0;
+          (data.omitidas || []).forEach((r) => fallidos.push(r));
+        } else {
+          lote.forEach((a) => fallidos.push(a.webkitRelativePath || a.name));
+          console.error('Error en lote:', response.status, data);
+        }
+      } catch (errLote) {
+        lote.forEach((a) => fallidos.push(a.webkitRelativePath || a.name));
+        console.error('Error de red en lote:', errLote);
+      }
     }
-  } catch (error) {
-    console.error('Error de red:', error);
-    Swal.fire('Error de red', 'No se pudo conectar con el servidor al intentar subir la carpeta.', 'error');
+
+    const resumen = fallidos.length
+      ? `Se importaron ${procesadasTotal} de ${files.length} imágenes. ${fallidos.length} no se pudieron asociar o fallaron (revisa la consola).`
+      : `Se importaron ${procesadasTotal} de ${files.length} imágenes.`;
+    Swal.fire(fallidos.length ? 'Terminado con observaciones' : '¡Proceso completado!', resumen,
+      fallidos.length ? 'warning' : 'success');
+    if (fallidos.length) console.warn('Archivos no importados:', fallidos);
+
+    buscar(paginaActualAdmin);
   } finally {
     event.target.value = '';
   }

@@ -67,75 +67,74 @@ async function getEspecimenCompleto(id) {
   return { ...especimen, detalle, imagenes, campos_personalizados: personalizados || [] };
 }
 
+// Mapa de nombres de carpeta (sin acentos, en minúsculas) a los campos del formulario
+const CAMPO_POR_CARPETA = {
+  'arboles': 'arbol', 'flores': 'flor', 'flor': 'flor',
+  'frutos': 'fruto', 'fruto': 'fruto',
+  'conos': 'cono', 'cono': 'cono',
+  'semillas': 'semilla', 'semilla': 'semilla',
+  'distribucion': 'distribucion', 'hojas': 'hojas', 'sexualidad': 'sexualidad'
+};
+
+const normalizarTexto = (t) => String(t || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const borrarArchivo = (file) => { try { fs.unlinkSync(file.path); } catch (e) {} };
+
 router.post('/upload-folder', requireAuth, requireAdmin, uploadCarpeta.array('imagenes'), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No se seleccionó ninguna imagen.' });
   }
 
+  // El cliente envía, en el mismo orden que "imagenes", la ruta relativa de cada archivo
+  const rutas = [].concat(req.body.rutas || []);
   const conn = await pool.getConnection();
+  const omitidas = [];
   let procesadas = 0;
 
   try {
     await conn.beginTransaction();
 
-    for (const file of req.files) {
-      const nombreOriginal = file.originalname;
-      const nombreLimpio = path.parse(nombreOriginal).name.trim();
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const rutaCarpeta = rutas[i] || file.originalname;
+      const campo = rutaCarpeta.split('/').map(normalizarTexto)
+        .map((p) => CAMPO_POR_CARPETA[p]).find(Boolean);
+      const nombreCientifico = path.parse(file.originalname).name.trim();
 
-      let [rows] = await conn.query(
-        'SELECT id, tipo FROM especimenes WHERE TRIM(nombre_cientifico) = ?', 
-        [nombreLimpio]
+      const [rows] = await conn.query(
+        'SELECT id FROM especimenes WHERE TRIM(nombre_cientifico) = ? OR TRIM(numero_registro) = ?',
+        [nombreCientifico, nombreCientifico]
       );
 
-      if (rows.length === 0) {
-        [rows] = await conn.query(
-          'SELECT id, tipo FROM especimenes WHERE nombre_cientifico LIKE ?', 
-          [`%${nombreLimpio}%`]
-        );
+      if (!campo || rows.length !== 1) {
+        omitidas.push(rutaCarpeta);
+        borrarArchivo(file);
+        continue;
       }
 
-      if (rows.length > 0) {
-        const especimen = rows[0];
-        const especimenId = especimen.id;
-
-        let campoAsignado = 'Árboles';
-        const rutaRelativaOriginal = (file.webkitRelativePath || '').toLowerCase();
-        
-        if (rutaRelativaOriginal.includes('flor')) campoAsignado = 'Flores';
-        else if (rutaRelativaOriginal.includes('fruto')) campoAsignado = 'Frutos';
-        else if (rutaRelativaOriginal.includes('cono')) campoAsignado = 'Conos';
-        else if (rutaRelativaOriginal.includes('semilla')) campoAsignado = 'Semilla';
-        else if (rutaRelativaOriginal.includes('distribucion')) campoAsignado = 'Distribución';
-
-        const rutaRelativaServidor = `/uploads/${file.filename}`;
-
-        const [imagenExistente] = await conn.query(
-          'SELECT id FROM imagenes WHERE especimen_id = ? AND ruta_archivo LIKE ?',
-          [especimenId, `%${path.basename(file.filename).split('-').slice(1).join('-')}%`]
-        );
-
-        if (imagenExistente.length === 0) {
-          await conn.query(
-            'INSERT INTO imagenes (especimen_id, ruta_archivo, campo) VALUES (?, ?, ?)',
-            [especimenId, rutaRelativaServidor, campoAsignado]
-          );
-          procesadas++;
-        } else {
-          try {
-            fs.unlinkSync(file.path);
-          } catch (e) {}
-        }
-      } else {
-        try {
-          fs.unlinkSync(file.path);
-        } catch (e) {}
+      const especimenId = rows[0].id;
+      const [duplicada] = await conn.query(
+        'SELECT id FROM imagenes WHERE especimen_id = ? AND campo = ? AND descripcion = ?',
+        [especimenId, campo, file.originalname]
+      );
+      if (duplicada.length > 0) {
+        borrarArchivo(file);
+        continue;
       }
+
+      await conn.query(
+        'INSERT INTO imagenes (especimen_id, ruta_archivo, campo, descripcion) VALUES (?, ?, ?, ?)',
+        [especimenId, file.filename, campo, file.originalname]
+      );
+      procesadas++;
     }
 
     await conn.commit();
-    res.json({ ok: true, procesadas });
+    res.json({ ok: true, procesadas, omitidas });
   } catch (err) {
     await conn.rollback();
+    req.files.forEach(borrarArchivo);
     res.status(500).json({ error: 'Error interno al procesar los archivos.' });
   } finally {
     conn.release();
@@ -363,6 +362,25 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 // ------------------------------------------------------------
 // POST /api/especimenes/importar -> Import Excel leyendo CODIGO sin registrar clave extra
 // ------------------------------------------------------------
+async function guardarCampoPersonalizado(conn, especimenId, nombreCampo, valor) {
+  const [existente] = await conn.query('SELECT id FROM campos_personalizados WHERE nombre_campo = ?', [nombreCampo]);
+  let campoId;
+  if (existente.length > 0) {
+    campoId = existente[0].id;
+  } else {
+    const [nuevo] = await conn.query(
+      "INSERT INTO campos_personalizados (tipo_aplica, nombre_campo) VALUES ('Ambos', ?)",
+      [nombreCampo]
+    );
+    campoId = nuevo.insertId;
+  }
+  await conn.query('DELETE FROM valores_personalizados WHERE especimen_id = ? AND campo_id = ?', [especimenId, campoId]);
+  await conn.query(
+    'INSERT INTO valores_personalizados (especimen_id, campo_id, valor) VALUES (?, ?, ?)',
+    [especimenId, campoId, valor]
+  );
+}
+
 router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('documento'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
 
@@ -391,7 +409,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
         const hojaUpper = nombreHoja.trim().toUpperCase();
         
         let tipo = null;
-        if (hojaUpper === 'GIMNOSBD' || hojaUpper === 'PINOS') {
+        if (['GIMNOSBD', 'GIMNOSPERMAS', 'PINOS'].includes(hojaUpper)) {
           tipo = 'Gimnosperma';
         } else if (hojaUpper.startsWith('ANGIO')) {
           tipo = 'Angiosperma';
@@ -412,7 +430,7 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
           const especie = fila['NOMBRE CIENTIFICO'] || '';
           const nombre_comun = fila['NOMBRE COMUN'] || '';
           const otras_caracteristicas = fila['OTRAS CARACTERISTICAS'] || '';
-          const distribucion = fila['DISTRIBUCION'] || fila['DISTRIBUCION NATURAL EN MEXICO'] || '';
+          const distribucion = fila['DISTRIBUCION'] || fila['DISTRIBUCION NATURAL'] || fila['DISTRIBUCION NATURAL EN MEXICO'] || '';
 
           const [rowsExiste] = await conn.query(
             `SELECT id FROM especimenes 
@@ -458,6 +476,10 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
                 [especimenId, subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud]
               );
             }
+            const claveHerbario = String(fila['CLAVE'] || '').trim();
+            if (claveHerbario) await guardarCampoPersonalizado(conn, especimenId, 'Clave', claveHerbario);
+            const ordenTaxonomico = String(fila['ORDEN'] || '').trim();
+            if (ordenTaxonomico) await guardarCampoPersonalizado(conn, especimenId, 'Orden', ordenTaxonomico);
             creados++;
           } else {
             especimenId = rowsExiste[0].id;
@@ -484,6 +506,10 @@ router.post('/importar', requireAuth, requireAdmin, uploadExcel.single('document
                 [subgenero, seccion, cono, umbo, tipo_semilla, forma_aciculas, bractea_foliar, altitud, especimenId]
               );
             }
+            const claveHerbario = String(fila['CLAVE'] || '').trim();
+            if (claveHerbario) await guardarCampoPersonalizado(conn, especimenId, 'Clave', claveHerbario);
+            const ordenTaxonomico = String(fila['ORDEN'] || '').trim();
+            if (ordenTaxonomico) await guardarCampoPersonalizado(conn, especimenId, 'Orden', ordenTaxonomico);
             actualizados++;
           }
         }
