@@ -72,24 +72,59 @@ async function buscar(nuevaPagina = 1) {
 }
 
 function actualizarControlesPaginacionAdmin(total) {
-  const totalPaginas = Math.ceil(total / limitePorPagina) || 1;
-  const pageInfo = document.getElementById('pageInfo');
-  if (pageInfo) pageInfo.textContent = `Página ${paginaActualAdmin} de ${totalPaginas}`;
+  const contenedor = document.getElementById('paginationContainer');
+  if (!contenedor) return;
 
-  const prevBtn = document.getElementById('prevPageBtn');
-  const nextBtn = document.getElementById('nextPageBtn');
-  
-  if (prevBtn) prevBtn.disabled = paginaActualAdmin <= 1;
-  if (nextBtn) nextBtn.disabled = paginaActualAdmin >= totalPaginas;
+  const totalPaginas = Math.max(1, Math.ceil(total / limitePorPagina));
+  const pag = paginaActualAdmin;
+  contenedor.dataset.totales = String(totalPaginas);
+
+  const boton = (texto, p, { disabled = false, activa = false } = {}) => `
+    <button type="button" class="btn btn-secondary pag-btn" data-page="${p}"
+      ${disabled ? 'disabled' : ''}
+      style="padding:6px 12px; min-width:38px; cursor:pointer; ${activa ? 'background:#153e23; color:#fff;' : ''}"
+      ${activa ? 'aria-current="page"' : ''}>${texto}</button>`;
+
+  // Primera, última y vecinas de la página actual; lo demás se resume con "…"
+  const visibles = [...new Set([1, totalPaginas, pag - 1, pag, pag + 1])]
+    .filter((p) => p >= 1 && p <= totalPaginas)
+    .sort((a, b) => a - b);
+
+  const piezas = [boton('⬅️ Anterior', pag - 1, { disabled: pag <= 1 })];
+  let anterior = 0;
+  for (const p of visibles) {
+    if (p - anterior > 1) piezas.push('<span style="padding:0 4px;">…</span>');
+    piezas.push(boton(String(p), p, { activa: p === pag }));
+    anterior = p;
+  }
+  piezas.push(boton('Siguiente ➡️', pag + 1, { disabled: pag >= totalPaginas }));
+
+  contenedor.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px;">
+      ${piezas.join('')}
+    </div>
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; margin-top:10px; font-family: var(--font-label); font-size:13px; color: var(--ink-soft);">
+      <span>Ir a la página</span>
+      <input type="number" id="irAPagina" min="1" max="${totalPaginas}" value="${pag}" style="width:70px; padding:4px;">
+      <span>de ${totalPaginas} · ${total} ejemplares</span>
+    </div>`;
 }
 
-document.getElementById('prevPageBtn')?.addEventListener('click', () => {
-  if (paginaActualAdmin > 1) buscar(paginaActualAdmin - 1);
-});
+const paginationContainerEl = document.getElementById('paginationContainer');
+if (paginationContainerEl) {
+  paginationContainerEl.addEventListener('click', (e) => {
+    const boton = e.target.closest('.pag-btn');
+    if (!boton || boton.disabled) return;
+    buscar(parseInt(boton.dataset.page, 10));
+  });
 
-document.getElementById('nextPageBtn')?.addEventListener('click', () => {
-  buscar(paginaActualAdmin + 1);
-});
+  paginationContainerEl.addEventListener('change', (e) => {
+    if (e.target.id !== 'irAPagina') return;
+    const maximo = parseInt(paginationContainerEl.dataset.totales, 10) || 1;
+    const pagina = Math.min(Math.max(1, parseInt(e.target.value, 10) || 1), maximo);
+    buscar(pagina);
+  });
+}
 
 function renderGrid(items) {
   const grid = document.getElementById('grid');
