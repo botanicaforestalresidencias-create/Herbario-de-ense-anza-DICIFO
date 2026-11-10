@@ -1,6 +1,7 @@
-const CACHE_NAME = 'herbario-dicifo-v4'; // Incrementamos la versión para limpiar cachés viejas
+const CACHE_NAME = 'herbario-dicifo-v6'; // v5: descarta el caché v4 que pudo guardar la página de advertencia de ngrok
 const OFFLINE_FALLBACK = './login.html';
 const OFFLINE_API_MESSAGE = 'Ejemplar no disponible sin conexión. Conéctate a internet para sincronizarlo.';
+const CABECERA_NGROK = { 'ngrok-skip-browser-warning': 'true' };
 
 const PRECACHE_ASSETS = [
   './',
@@ -13,13 +14,33 @@ const PRECACHE_ASSETS = [
   './js/admin.js',
   './chapingo.png',
   './forestales.png',
-  './manifest.json'
+  './manifest.json',
+  './assets/icon-192.png'
 ];
 
 const isRequestCacheable = (request) => request.method === 'GET' && request.url.startsWith(self.location.origin);
 
+// Una respuesta solo se guarda si es válida y no es la página de advertencia de ngrok
+const esRespuestaValida = async (response) => {
+  if (!response || !(response.ok || response.status === 204)) return false;
+
+  const tipo = response.headers.get('content-type') || '';
+  if (tipo.includes('text/html')) {
+    try {
+      const texto = await response.clone().text();
+      if (/ngrok|ERR_NGROK/i.test(texto)) return false;
+    } catch (error) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const cacheResponse = async (request, response) => {
-  if (!response || !(response.ok || response.status === 204)) return;
+  if (!(await esRespuestaValida(response))) {
+    console.warn('Respuesta no válida, no se guarda en caché:', request.url);
+    return;
+  }
 
   try {
     const cache = await caches.open(CACHE_NAME);
@@ -27,6 +48,14 @@ const cacheResponse = async (request, response) => {
   } catch (error) {
     console.warn('No se pudo guardar en caché:', request.url, error);
   }
+};
+
+// Añade la cabecera de ngrok a las peticiones que el service worker hace a la red
+const conCabeceraNgrok = (request) => {
+  if (request.mode === 'navigate') return request;
+  return new Request(request, {
+    headers: new Headers([...request.headers, ...Object.entries(CABECERA_NGROK)])
+  });
 };
 
 self.addEventListener('install', (event) => {
@@ -37,7 +66,12 @@ self.addEventListener('install', (event) => {
 
         for (const asset of PRECACHE_ASSETS) {
           try {
-            await cache.add(asset);
+            const respuesta = await fetch(new Request(asset, { headers: CABECERA_NGROK, cache: 'no-store' }));
+            if (await esRespuestaValida(respuesta)) {
+              await cache.put(asset, respuesta);
+            } else {
+              console.warn('Recurso no válido, no se precachea:', asset);
+            }
           } catch (error) {
             console.warn('No se pudo precachear:', asset, error);
           }
@@ -71,27 +105,12 @@ self.addEventListener('fetch', (event) => {
 
   if (!isRequestCacheable(request)) return;
 
-  // Estrategia de navegación blindada contra páginas de advertencia ajenas (como ngrok)
+  // Navegación: red primero; si falla, caché o login sin conexión
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(async (response) => {
-          if (response && response.ok) {
-            // Clonamos la respuesta para revisar su contenido de texto antes de cachearla
-            const clonedResponse = response.clone();
-            try {
-              const responseText = await clonedResponse.text();
-              // Validamos que NO sea una página de advertencia de ngrok
-              if (!responseText.includes('ngrok') && !responseText.includes('ERR_NGROK')) {
-                await cacheResponse(request, response);
-              } else {
-                console.warn('Se bloqueó el almacenamiento en caché de una página de advertencia de ngrok.');
-              }
-            } catch (err) {
-              // Si falla la lectura del texto, cacheamos de forma segura si es ok
-              await cacheResponse(request, response);
-            }
-          }
+          await cacheResponse(request, response);
           return response;
         })
         .catch(async () => {
@@ -108,13 +127,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // API: red primero; si falla, última respuesta guardada
   if (url.pathname.includes('/api/')) {
     event.respondWith(
-      fetch(request)
+      fetch(conCabeceraNgrok(request))
         .then(async (response) => {
-          if (response && response.ok) {
-            await cacheResponse(request, response);
-          }
+          await cacheResponse(request, response);
           return response;
         })
         .catch(async () => {
@@ -135,6 +153,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Imágenes subidas: caché primero, luego red
   if (url.pathname.includes('/uploads/')) {
     event.respondWith(
       (async () => {
@@ -142,10 +161,8 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
 
         try {
-          const networkResponse = await fetch(request);
-          if (networkResponse && networkResponse.ok) {
-            await cacheResponse(request, networkResponse);
-          }
+          const networkResponse = await fetch(conCabeceraNgrok(request));
+          await cacheResponse(request, networkResponse);
           return networkResponse;
         } catch (error) {
           return caches.match(OFFLINE_FALLBACK) || caches.match('./login.html');
@@ -155,15 +172,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Estáticos: caché primero, luego red
   event.respondWith(
     caches.match(request).then(async (cached) => {
       if (cached) return cached;
 
       try {
-        const networkResponse = await fetch(request);
-        if (networkResponse && networkResponse.ok) {
-          await cacheResponse(request, networkResponse);
-        }
+        const networkResponse = await fetch(conCabeceraNgrok(request));
+        await cacheResponse(request, networkResponse);
         return networkResponse;
       } catch (error) {
         return (
