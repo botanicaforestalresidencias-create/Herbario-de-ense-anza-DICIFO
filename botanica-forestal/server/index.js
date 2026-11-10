@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Sirve las imágenes subidas
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 app.use('/api/auth', authRouter);
 app.use('/api/especimenes', especimenesRouter);
