@@ -15,7 +15,9 @@ const limitePorPaginaConsulta = 20;
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
   logoutBtn.addEventListener('click', () => {
-    localStorage.clear();
+    // Solo se borra la sesión activa; la sesión de alumno guardada se conserva para uso sin internet
+    localStorage.removeItem('token');
+    localStorage.removeItem('sesion');
     window.location.href = 'login.html';
   });
 }
@@ -70,6 +72,16 @@ function reproducirBeepExito() {
   }
 }
 
+function mostrarAvisoLista(texto) {
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  if (grid) grid.innerHTML = '';
+  if (empty) {
+    empty.textContent = texto;
+    empty.style.display = 'block';
+  }
+}
+
 async function buscar(nuevaPagina = 1) {
   paginaActualConsulta = nuevaPagina;
   const q = document.getElementById('searchQ').value.trim();
@@ -86,9 +98,9 @@ async function buscar(nuevaPagina = 1) {
   try {
     const res = await fetch(`${API}/especimenes?${params.toString()}`, { headers: authHeaders() });
 
-    if (res.status === 401) { 
-      window.location.href = 'login.html'; 
-      return; 
+    if (res.status === 401) {
+      window.location.href = 'login.html';
+      return;
     }
 
     const respuesta = await res.json();
@@ -100,6 +112,7 @@ async function buscar(nuevaPagina = 1) {
     actualizarControlesPaginacionConsulta(totalRegistros);
   } catch (err) {
     console.error('Error al realizar búsqueda:', err);
+    mostrarAvisoLista('Sin conexión. Esta búsqueda requiere internet; los ejemplares ya consultados siguen disponibles.');
   }
 }
 
@@ -164,7 +177,10 @@ function renderGrid(items) {
   grid.innerHTML = '';
 
   if (!items || items.length === 0) {
-    if (empty) empty.style.display = 'block';
+    if (empty) {
+      empty.textContent = 'No se encontraron ejemplares.';
+      empty.style.display = 'block';
+    }
     return;
   }
   if (empty) empty.style.display = 'none';
@@ -220,7 +236,7 @@ function abrirImagenGrande(srcRuta) {
       box-shadow: 0 4px 15px rgba(0,0,0,0.6);
       z-index: 10;
       transition: all 0.2s ease;
-    " onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.borderColor='#dc2626'; this.style.transform='scale(1.15)';" 
+    " onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.borderColor='#dc2626'; this.style.transform='scale(1.15)';"
       onmouseout="this.style.background='#ffffff'; this.style.color='#153e23'; this.style.borderColor='#153e23'; this.style.transform='scale(1)';"
       title="Cerrar">&times;</button>
 
@@ -327,7 +343,7 @@ function construirHtmlFicha(e, esImpresion = false) {
     `}
   `;
 
-  const galeriaDistribucion = imgsPorCampo.distribucion && imgsPorCampo.distribucion.length > 0 
+  const galeriaDistribucion = imgsPorCampo.distribucion && imgsPorCampo.distribucion.length > 0
     ? `<div class="img-gallery" style="margin-top: 8px;">${imgsPorCampo.distribucion.map(img => {
         const urlCompleta = `${API.replace('/api', '')}/uploads/${img.ruta_archivo}`;
         return `<img src="${urlCompleta}" alt="Mapa de distribución" style="cursor: pointer; max-width: 180px; height: auto;" title="Clic para ampliar">`;
@@ -356,26 +372,26 @@ function construirHtmlFicha(e, esImpresion = false) {
         </div>
       </div>
     ` : ''}
-    
+
     <div class="ficha-header-layout">
       <div class="ficha-left">
         <span class="badge-folio">Folio: <strong>${e.numero_registro}</strong></span>
         <h2 style="font-style: italic; margin: 10px 0 2px;">${e.nombre_cientifico || e.especie || 'Sin identificar'}</h2>
         <div class="comun">${e.nombre_comun || ''}</div>
       </div>
-      
+
       <div class="ficha-right">
         ${fotosCabeceraHtml ? `<div class="main-photo-box">${fotosCabeceraHtml}</div>` : ''}
       </div>
     </div>
 
     <table class="spec-table">${filasTaxonomiaYEspecificas}</table>
-    
+
     <div class="section-title">Distribución y Hábitat</div>
     <table class="spec-table">${filasDistribucion}</table>
-    
+
     ${e.otras_caracteristicas ? `<div class="section-title">Otras características</div><p style="font-size:12px; line-height:1.4; padding-left:4px;">${e.otras_caracteristicas}</p>` : ''}
-    
+
     ${filasExtra ? `<div class="section-title">Otros campos</div><table class="spec-table">${filasExtra}</table>` : ''}
   `;
 }
@@ -691,7 +707,7 @@ if (localStorage.getItem('darkMode') === 'enabled') {
 if (darkModeToggle) {
   darkModeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
-    
+
     if (document.body.classList.contains('dark-mode')) {
       localStorage.setItem('darkMode', 'enabled');
       darkModeToggle.textContent = '☀️ Modo Claro';

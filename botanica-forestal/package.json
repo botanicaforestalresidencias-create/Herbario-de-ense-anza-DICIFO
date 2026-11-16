@@ -12,12 +12,12 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
-    "express": "^4.22.2",
+    "express": "^4.22.3",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.2",
     "mysql2": "^3.24.2",
     "sharp": "^0.35.4",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "electron": "^31.0.0"

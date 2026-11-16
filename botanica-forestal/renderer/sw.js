@@ -1,4 +1,4 @@
-const CACHE_NAME = 'herbario-dicifo-v6'; // v5: descarta el caché v4 que pudo guardar la página de advertencia de ngrok
+const CACHE_NAME = 'herbario-dicifo-v7'; // v7: no toca la app de claves (/claves) ni sus cachés
 const OFFLINE_FALLBACK = './login.html';
 const OFFLINE_API_MESSAGE = 'Ejemplar no disponible sin conexión. Conéctate a internet para sincronizarlo.';
 const CABECERA_NGROK = { 'ngrok-skip-browser-warning': 'true' };
@@ -87,7 +87,12 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      // Solo borra cachés viejas del herbario; la app de claves comparte el dominio
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith('herbario-dicifo-') && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
+      );
       await self.clients.claim();
     })()
   );
@@ -102,6 +107,9 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // La app de claves tiene su propio service worker
+  if (url.pathname === '/claves' || url.pathname.startsWith('/claves/')) return;
 
   if (!isRequestCacheable(request)) return;
 
